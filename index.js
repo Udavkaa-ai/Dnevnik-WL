@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./api'); // Express API + static webapp
 const { Telegraf, Markup } = require('telegraf');
 const cron = require('node-cron');
 const db = require('./db');
@@ -499,6 +500,17 @@ bot.command('время', async (ctx) => {
   if (!user) return ctx.reply('Сначала напиши /start');
   const { text, keyboard } = buildTimeMenu(user);
   await send(ctx.chat.id, text, keyboard);
+});
+
+// ─── /дневник — открыть Mini App ─────────────────────────────────────────────
+bot.command('дневник', async (ctx) => {
+  const url = process.env.WEBAPP_URL;
+  if (!url) return ctx.reply('WEBAPP_URL не настроен в .env');
+  await ctx.reply('Открывай 👇', {
+    reply_markup: {
+      inline_keyboard: [[{ text: '📖 Открыть дневник', web_app: { url } }]]
+    }
+  });
 });
 
 // ─── Ручной запуск ────────────────────────────────────────────────────────────

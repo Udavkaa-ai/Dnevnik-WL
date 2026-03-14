@@ -1,0 +1,118 @@
+require('dotenv').config();
+const express = require('express');
+const crypto = require('crypto');
+const path = require('path');
+const db = require('./db');
+
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'webapp')));
+
+// ─── Утилиты ─────────────────────────────────────────────────────────────────
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function tomorrowStr() {
+  const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0];
+}
+
+// ─── Валидация initData от Telegram ──────────────────────────────────────────
+function validateInitData(initData) {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return null;
+    params.delete('hash');
+
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+
+    const secretKey = crypto.createHmac('sha256', 'WebAppData')
+      .update(process.env.BOT_TOKEN)
+      .digest();
+
+    const expectedHash = crypto.createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    if (hash !== expectedHash) return null;
+    return JSON.parse(params.get('user') || 'null');
+  } catch {
+    return null;
+  }
+}
+
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+function auth(req, res, next) {
+  const initData = req.headers['x-init-data'];
+  if (!initData) return res.status(401).json({ error: 'Unauthorized' });
+
+  const user = validateInitData(initData);
+  if (!user?.id) return res.status(401).json({ error: 'Invalid initData' });
+
+  req.uid = user.id;
+
+  if (!db.prepare('SELECT 1 FROM users WHERE user_id = ?').get(req.uid)) {
+    db.prepare('INSERT INTO users (user_id, name) VALUES (?, ?)').run(req.uid, user.first_name || '');
+  }
+
+  next();
+}
+
+// ─── GET /api/today ───────────────────────────────────────────────────────────
+app.get('/api/today', auth, (req, res) => {
+  const entry = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date = ?').get(req.uid, todayStr());
+  const plans = db.prepare('SELECT * FROM plans WHERE user_id = ? AND plan_date = ? ORDER BY id').all(req.uid, todayStr());
+  res.json({ entry: entry || null, plans });
+});
+
+// ─── GET /api/week ────────────────────────────────────────────────────────────
+app.get('/api/week', auth, (req, res) => {
+  const entries = db.prepare('SELECT * FROM entries WHERE user_id = ? ORDER BY date DESC LIMIT 7').all(req.uid);
+  res.json({ entries });
+});
+
+// ─── GET /api/mood ────────────────────────────────────────────────────────────
+app.get('/api/mood', auth, (req, res) => {
+  const mood = db.prepare(
+    `SELECT date, mood_score FROM entries WHERE user_id = ? AND mood_score IS NOT NULL ORDER BY date DESC LIMIT 14`
+  ).all(req.uid).reverse();
+  res.json({ mood });
+});
+
+// ─── PATCH /api/plans/:id/toggle ─────────────────────────────────────────────
+app.patch('/api/plans/:id/toggle', auth, (req, res) => {
+  const plan = db.prepare('SELECT * FROM plans WHERE id = ? AND user_id = ?').get(req.params.id, req.uid);
+  if (!plan) return res.status(404).json({ error: 'Not found' });
+
+  const newStatus = plan.status === 'done' ? 'pending' : 'done';
+  db.prepare(
+    `UPDATE plans SET status = ?, checked_at = CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id = ?`
+  ).run(newStatus, newStatus, plan.id);
+
+  res.json({ id: plan.id, status: newStatus });
+});
+
+// ─── POST /api/entry ─────────────────────────────────────────────────────────
+app.post('/api/entry', auth, (req, res) => {
+  const { done, not_done, mood_score, plans } = req.body;
+  if (!done?.trim() || !mood_score) return res.status(400).json({ error: 'done и mood_score обязательны' });
+
+  db.prepare(`
+    INSERT INTO entries (user_id, date, done, not_done, mood_score)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, date) DO UPDATE SET
+      done = excluded.done, not_done = excluded.not_done, mood_score = excluded.mood_score
+  `).run(req.uid, todayStr(), done.trim(), not_done?.trim() || null, mood_score);
+
+  if (Array.isArray(plans) && plans.length) {
+    db.prepare(`DELETE FROM plans WHERE user_id = ? AND plan_date = ? AND status = 'pending'`).run(req.uid, tomorrowStr());
+    const insert = db.prepare(`INSERT INTO plans (user_id, plan_date, task_text) VALUES (?, ?, ?)`);
+    plans.filter(t => t?.trim()).forEach(t => insert.run(req.uid, tomorrowStr(), t.trim()));
+  }
+
+  res.json({ ok: true });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🌐 API на порту ${PORT}`));
