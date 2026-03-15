@@ -499,21 +499,40 @@ bot.start(async (ctx) => {
   // ── Обработка invite deep link ─────────────────────────────────────────────
   if (payload?.startsWith('invite_')) {
     const code = payload.replace('invite_', '');
-    const invite = db.prepare('SELECT * FROM invites WHERE code = ? AND used_by IS NULL').get(code);
+    console.log(`[invite] uid=${uid} name="${name}" code="${code}"`);
+
+    const invite = db.prepare('SELECT * FROM invites WHERE code = ?').get(code);
+    console.log(`[invite] db lookup:`, invite
+      ? `creator=${invite.creator_id} used_by=${invite.used_by ?? 'null'}`
+      : 'NOT FOUND');
 
     if (!invite) {
-      await ctx.reply('❌ Приглашение не найдено или уже использовано.');
+      await ctx.reply('❌ Приглашение не найдено. Попроси друга создать новую ссылку.');
+    } else if (invite.used_by !== null && invite.used_by !== uid) {
+      // Уже использовано кем-то другим
+      await ctx.reply('❌ Эта ссылка уже была использована. Попроси друга создать новую.');
     } else if (invite.creator_id === uid) {
       await ctx.reply('😄 Нельзя добавить себя в друзья — перешли ссылку другому человеку!');
     } else {
-      // Создаём дружбу в обе стороны
-      db.prepare('UPDATE invites SET used_by = ? WHERE code = ?').run(uid, code);
-      db.prepare('INSERT OR IGNORE INTO friendships (user_id, friend_id) VALUES (?, ?)').run(invite.creator_id, uid);
-      db.prepare('INSERT OR IGNORE INTO friendships (user_id, friend_id) VALUES (?, ?)').run(uid, invite.creator_id);
+      try {
+        // Создаём дружбу в обе стороны
+        db.prepare('UPDATE invites SET used_by = ? WHERE code = ?').run(uid, code);
+        const r1 = db.prepare('INSERT OR IGNORE INTO friendships (user_id, friend_id) VALUES (?, ?)').run(invite.creator_id, uid);
+        const r2 = db.prepare('INSERT OR IGNORE INTO friendships (user_id, friend_id) VALUES (?, ?)').run(uid, invite.creator_id);
+        console.log(`[invite] friendships inserted: A→B changes=${r1.changes} B→A changes=${r2.changes}`);
 
-      const creator = db.prepare('SELECT name FROM users WHERE user_id = ?').get(invite.creator_id);
-      await send(invite.creator_id, `👥 *${name}* принял твоё приглашение! Теперь вы друзья — открой вкладку Друзья в дневнике.`);
-      await send(uid, `🤝 Отлично! Ты подружился с *${creator?.name || 'пользователем'}*.\n\nТеперь вы видите настроение и прогресс друг друга в дневнике.`);
+        const creator = db.prepare('SELECT name FROM users WHERE user_id = ?').get(invite.creator_id);
+        const creatorName = creator?.name || 'пользователем';
+        console.log(`[invite] success: ${uid}(${name}) ↔ ${invite.creator_id}(${creatorName})`);
+
+        await send(uid, `🤝 Отлично! Ты подружился с *${creatorName.replace(/([_*`])/g,'\\$1')}*.\n\nОткрой вкладку Друзья в дневнике — там уже виден его прогресс.`);
+        await send(invite.creator_id, `👥 *${name.replace(/([_*`])/g,'\\$1')}* принял твоё приглашение! Откройте вкладку Друзья в дневнике.`).catch(e =>
+          console.warn(`[invite] не удалось уведомить creator ${invite.creator_id}:`, e.message)
+        );
+      } catch (e) {
+        console.error('[invite] ERROR creating friendship:', e.message);
+        await ctx.reply('Произошла ошибка при добавлении в друзья. Попробуй ещё раз.');
+      }
     }
     // Продолжаем — показываем онбординг или приветствие
   }
@@ -668,6 +687,43 @@ bot.command('друзья', async (ctx) => {
     text += `Друзей пока нет.\n\n`;
   }
   text += `📤 *Пригласи друга:*\n\`${link}\`\n\n_Ссылка одноразовая. Когда друг перейдёт — вы увидите прогресс друг друга в приложении._`;
+
+  await send(ctx.chat.id, text);
+});
+
+// ─── /debug — диагностика дружб и инвайтов ───────────────────────────────────
+bot.command('debug', async (ctx) => {
+  const uid = ctx.from.id;
+
+  const friends = db.prepare(`
+    SELECT u.user_id, u.name FROM friendships f
+    JOIN users u ON u.user_id = f.friend_id WHERE f.user_id = ?
+  `).all(uid);
+
+  const myInvites = db.prepare(
+    `SELECT code, used_by, created_at FROM invites WHERE creator_id = ? ORDER BY created_at DESC LIMIT 5`
+  ).all(uid);
+
+  const usedInvites = db.prepare(
+    `SELECT i.code, u.name as creator_name, i.created_at FROM invites i
+     JOIN users u ON u.user_id = i.creator_id WHERE i.used_by = ?`
+  ).all(uid);
+
+  const totalUsers = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
+  const totalFriendships = db.prepare('SELECT COUNT(*) as c FROM friendships').get().c;
+
+  let text = `🔧 *Debug — uid: ${uid}*\n\n`;
+  text += `👥 Мои друзья (${friends.length}):\n`;
+  text += friends.length ? friends.map(f => `• ${f.name} (${f.user_id})`).join('\n') : '— нет —';
+  text += `\n\n📤 Мои инвайты (последние 5):\n`;
+  text += myInvites.length
+    ? myInvites.map(i => `• \`${i.code}\` → used_by: ${i.used_by ?? 'null'}`).join('\n')
+    : '— нет —';
+  text += `\n\n📥 Инвайты по которым я пришёл:\n`;
+  text += usedInvites.length
+    ? usedInvites.map(i => `• от ${i.creator_name}: \`${i.code}\``).join('\n')
+    : '— нет —';
+  text += `\n\n📊 В БД: ${totalUsers} юзеров, ${totalFriendships} дружб`;
 
   await send(ctx.chat.id, text);
 });

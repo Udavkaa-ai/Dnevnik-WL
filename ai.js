@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: process.env.OPENROUTER_API_KEY || 'no-key-local-dev',
 });
 
 const MODEL_HEAVY = 'google/gemini-2.5-flash';
