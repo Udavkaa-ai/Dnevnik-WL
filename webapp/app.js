@@ -159,28 +159,46 @@ function initEntry() {
   updateMoodDisplay(5);
 }
 
-function selectEntryDate(type) {
+async function selectEntryDate(type) {
   if (type === 'today') {
     selectedEntryDate = todayStr();
     document.querySelectorAll('.date-opt-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('date-today-btn').classList.add('selected');
-    setTimeout(() => showStep(1), 200);
   } else if (type === 'yesterday') {
     const d = new Date();
     d.setDate(d.getDate() - 1);
     selectedEntryDate = d.toISOString().split('T')[0];
     document.querySelectorAll('.date-opt-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('date-yesterday-btn').classList.add('selected');
-    setTimeout(() => showStep(1), 200);
   } else if (type === 'custom') {
     const val = document.getElementById('date-custom-input').value;
-    if (!val) {
-      tg.HapticFeedback?.notificationOccurred('error');
-      return;
-    }
+    if (!val) { tg.HapticFeedback?.notificationOccurred('error'); return; }
     selectedEntryDate = val;
-    showStep(1);
   }
+  // Предзаполняем из существующей записи
+  await prefillFromExisting(selectedEntryDate);
+  showStep(1);
+}
+
+async function prefillFromExisting(date) {
+  try {
+    const { entry, plans } = await api('GET', `/api/entry/${date}`);
+    if (entry) {
+      document.getElementById('input-done').value = entry.done !== '—' ? (entry.done || '') : '';
+      document.getElementById('input-not-done').value = entry.not_done || '';
+      if (entry.mood_score) {
+        selectedMood = entry.mood_score;
+        document.querySelectorAll('.mood-btn').forEach((b, i) => {
+          b.classList.toggle('selected', i + 1 === selectedMood);
+        });
+        updateMoodDisplay(selectedMood);
+      }
+    }
+    if (plans.length) {
+      taskList = plans.map(p => p.task_text);
+      renderTaskList();
+    }
+  } catch (_) {}
 }
 
 function showStep(n) {
@@ -190,18 +208,13 @@ function showStep(n) {
 }
 
 function entryNext(fromStep) {
-  if (fromStep === 1) {
-    const val = document.getElementById('input-done').value.trim();
-    if (!val) {
-      tg.HapticFeedback?.notificationOccurred('error');
-      document.getElementById('input-done').focus();
-      return;
-    }
-  }
-  if (fromStep === 3) {
-    // задачи задаются на шаге 4, а не 3 — мудрость уже записана
-  }
   showStep(fromStep + 1);
+}
+
+// Принудительный переход к шагу (для кнопки «Пропустить»)
+function skipToStep(n) {
+  tg.HapticFeedback?.selectionChanged?.();
+  showStep(n);
 }
 
 function selectMood(score) {

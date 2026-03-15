@@ -69,11 +69,14 @@
       <div class="step-dots">
         <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       </div>
-      <div class="step-title">Что сделал сегодня?</div>
+      <div class="step-title">Что сделал?</div>
       <div class="step-hint">Работа, семья, личное — всё что было</div>
-      <textarea id="input-done" class="textarea" rows="6"
+      <textarea id="input-done" class="textarea" rows="5"
         placeholder="Закрыл отчёт, провёл встречу&#10;Забрал ребёнка из школы&#10;Вечером читал..."></textarea>
-      <button class="btn-primary" onclick="entryNext(1)">Далее</button>
+      <div class="step-actions">
+        <button class="btn-primary" onclick="entryNext(1)">Далее →</button>
+        <button class="btn-skip" onclick="skipToStep(2)">Пропустить</button>
+      </div>
     </div>
 
     <div id="step-2" class="step">
@@ -81,10 +84,13 @@
         <span class="dot done"></span><span class="dot active"></span><span class="dot"></span><span class="dot"></span>
       </div>
       <div class="step-title">Что не получилось?</div>
-      <div class="step-hint">Или оставь пустым — запишем «ничего»</div>
-      <textarea id="input-not-done" class="textarea" rows="4"
+      <div class="step-hint">Или оставь пустым</div>
+      <textarea id="input-not-done" class="textarea" rows="3"
         placeholder="ничего"></textarea>
-      <button class="btn-primary" onclick="entryNext(2)">Далее</button>
+      <div class="step-actions">
+        <button class="btn-primary" onclick="entryNext(2)">Далее →</button>
+        <button class="btn-skip" onclick="skipToStep(3)">Пропустить</button>
+      </div>
       <button class="btn-ghost" onclick="showStep(1)">← Назад</button>
     </div>
 
@@ -100,7 +106,10 @@
         </div>
         <div class="mood-grid" id="mood-grid"></div>
       </div>
-      <button class="btn-primary" onclick="entryNext(3)">Далее</button>
+      <div class="step-actions">
+        <button class="btn-primary" onclick="entryNext(3)">Далее →</button>
+        <button class="btn-skip" onclick="skipToStep(4)">Пропустить</button>
+      </div>
       <button class="btn-ghost" onclick="showStep(2)">← Назад</button>
     </div>
 
@@ -109,7 +118,7 @@
         <span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot active"></span>
       </div>
       <div class="step-title">Планы на завтра</div>
-      <div class="step-hint">Нажми Enter чтобы добавить</div>
+      <div class="step-hint">Enter — добавить задачу</div>
       <div id="plans-input-list"></div>
       <div class="add-task-row">
         <input type="text" id="task-input" class="task-input" placeholder="Добавить задачу...">

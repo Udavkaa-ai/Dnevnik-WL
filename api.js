@@ -72,6 +72,19 @@ app.get('/api/today', auth, (req, res) => {
   res.json({ entry: entry || null, plans, entry_count: entryCount, last_tip: lastTip || null });
 });
 
+// ─── GET /api/entry/:date — существующая запись за дату ──────────────────────
+app.get('/api/entry/:date', auth, (req, res) => {
+  const { date } = req.params;
+  const entry = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date = ?').get(req.uid, date);
+  const d = new Date(date + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  const nextDay = d.toISOString().split('T')[0];
+  const plans = db.prepare(
+    `SELECT * FROM plans WHERE user_id = ? AND plan_date = ? AND status = 'pending' ORDER BY id`
+  ).all(req.uid, nextDay);
+  res.json({ entry: entry || null, plans });
+});
+
 // ─── GET /api/week ────────────────────────────────────────────────────────────
 app.get('/api/week', auth, (req, res) => {
   const entries = db.prepare('SELECT * FROM entries WHERE user_id = ? ORDER BY date DESC LIMIT 7').all(req.uid);
@@ -116,7 +129,6 @@ app.patch('/api/profile', auth, (req, res) => {
 // ─── POST /api/entry ─────────────────────────────────────────────────────────
 app.post('/api/entry', auth, (req, res) => {
   const { done, not_done, mood_score, plans, date } = req.body;
-  if (!done?.trim() || !mood_score) return res.status(400).json({ error: 'done и mood_score обязательны' });
 
   // Дата из тела или сегодня; не позволяем будущие даты
   const entryDate = date && date <= todayStr() ? date : todayStr();
@@ -126,12 +138,18 @@ app.post('/api/entry', auth, (req, res) => {
     return d.toISOString().split('T')[0];
   })();
 
+  // Если поля не переданы — берём существующие значения из БД
+  const existing = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date = ?').get(req.uid, entryDate);
+  const finalDone      = done?.trim()     || existing?.done     || '—';
+  const finalNotDone   = not_done?.trim() || existing?.not_done || null;
+  const finalMoodScore = mood_score       || existing?.mood_score || null;
+
   db.prepare(`
     INSERT INTO entries (user_id, date, done, not_done, mood_score)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(user_id, date) DO UPDATE SET
       done = excluded.done, not_done = excluded.not_done, mood_score = excluded.mood_score
-  `).run(req.uid, entryDate, done.trim(), not_done?.trim() || null, mood_score);
+  `).run(req.uid, entryDate, finalDone, finalNotDone, finalMoodScore);
 
   if (Array.isArray(plans) && plans.length) {
     db.prepare(`DELETE FROM plans WHERE user_id = ? AND plan_date = ? AND status = 'pending'`).run(req.uid, nextDay);
