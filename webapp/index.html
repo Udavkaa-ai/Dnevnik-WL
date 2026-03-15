@@ -274,60 +274,25 @@
 
   </div>
 
-  <!-- ── Друзья ── -->
-  <div id="screen-friends" class="screen">
-    <div class="page-header">
-      <div class="page-title">Друзья</div>
-      <div class="page-subtitle">Настроение и прогресс</div>
-    </div>
-
-    <div class="card friends-invite-card">
-      <div class="friends-invite-text">Пригласи друга — смотрите прогресс вместе 👀</div>
-      <button class="btn-primary" onclick="createInvite()">📤 Пригласить друга</button>
-    </div>
-
-    <div id="invite-result" class="card hidden">
-      <div class="card-label">Ссылка-приглашение</div>
-      <div id="invite-link-text" class="invite-link"></div>
-      <button class="btn-primary" style="margin-top:10px" onclick="copyInvite()">📋 Скопировать ссылку</button>
-      <div class="invite-hint">Одноразовая — перешли другу в любом мессенджере</div>
-    </div>
-
-    <div id="friends-list"></div>
-
-    <div id="friends-empty" class="empty hidden">
-      <div class="empty-icon">👥</div>
-      <div class="empty-text">Друзей пока нет</div>
-      <div class="empty-hint">Нажми «Пригласить» и отправь ссылку другу</div>
-    </div>
-
-    <div id="friends-error" class="card hidden" style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px"></div>
-  </div>
 
 </div><!-- #app -->
 
 <nav class="bottom-nav">
+  <button class="nav-btn active" data-screen="entry" onclick="showScreen('entry', this)">
+    <span class="nav-icon">📖</span>
+    <span class="nav-label">Дневник</span>
+  </button>
   <button class="nav-btn" data-screen="today" onclick="showScreen('today', this)">
     <span class="nav-icon">✅</span>
     <span class="nav-label">Сделано</span>
   </button>
   <button class="nav-btn" data-screen="insights" onclick="showScreen('insights', this)">
     <span class="nav-icon">📈</span>
-    <span class="nav-label">Инсайты</span>
-  </button>
-  <button class="nav-btn nav-btn-center active" data-screen="entry" onclick="showScreen('entry', this)">
-    <div class="nav-center-wrap">
-      <span class="nav-icon">📖</span>
-    </div>
-    <span class="nav-label">Дневник</span>
+    <span class="nav-label">Статистика</span>
   </button>
   <button class="nav-btn" data-screen="ai" onclick="showScreen('ai', this)">
     <span class="nav-icon">✨</span>
     <span class="nav-label">AI</span>
-  </button>
-  <button class="nav-btn" data-screen="friends" onclick="showScreen('friends', this)">
-    <span class="nav-icon">👥</span>
-    <span class="nav-label">Друзья</span>
   </button>
 </nav>
 

@@ -588,25 +588,6 @@ body {
 .nav-icon { font-size: 22px; line-height: 1; }
 .nav-label { font-size: 11px; font-weight: 500; }
 
-/* ── Центральная кнопка Дневник ── */
-.nav-btn-center { position: relative; }
-.nav-center-wrap {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--btn);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: -20px;
-  margin-bottom: 2px;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--btn) 45%, transparent);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.nav-btn-center .nav-icon { font-size: 26px; }
-.nav-btn-center:active .nav-center-wrap { transform: scale(0.92); box-shadow: none; }
-.nav-btn-center.active .nav-label { color: var(--btn); }
-.nav-btn-center .nav-center-wrap .nav-icon { color: #fff; }
 
 /* ── Section header ── */
 .section-header {

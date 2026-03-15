@@ -693,39 +693,44 @@ bot.command('друзья', async (ctx) => {
 
 // ─── /debug — диагностика дружб и инвайтов ───────────────────────────────────
 bot.command('debug', async (ctx) => {
-  const uid = ctx.from.id;
+  try {
+    const uid = ctx.from.id;
 
-  const friends = db.prepare(`
-    SELECT u.user_id, u.name FROM friendships f
-    JOIN users u ON u.user_id = f.friend_id WHERE f.user_id = ?
-  `).all(uid);
+    const friends = db.prepare(`
+      SELECT u.user_id, u.name FROM friendships f
+      JOIN users u ON u.user_id = f.friend_id WHERE f.user_id = ?
+    `).all(uid);
 
-  const myInvites = db.prepare(
-    `SELECT code, used_by, created_at FROM invites WHERE creator_id = ? ORDER BY created_at DESC LIMIT 5`
-  ).all(uid);
+    const myInvites = db.prepare(
+      `SELECT code, used_by FROM invites WHERE creator_id = ? ORDER BY created_at DESC LIMIT 5`
+    ).all(uid);
 
-  const usedInvites = db.prepare(
-    `SELECT i.code, u.name as creator_name, i.created_at FROM invites i
-     JOIN users u ON u.user_id = i.creator_id WHERE i.used_by = ?`
-  ).all(uid);
+    const usedInvites = db.prepare(
+      `SELECT i.code, u.name as creator_name FROM invites i
+       LEFT JOIN users u ON u.user_id = i.creator_id WHERE i.used_by = ?`
+    ).all(uid);
 
-  const totalUsers = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
-  const totalFriendships = db.prepare('SELECT COUNT(*) as c FROM friendships').get().c;
+    const totalUsers = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
+    const totalFriendships = db.prepare('SELECT COUNT(*) as c FROM friendships').get().c;
 
-  let text = `🔧 *Debug — uid: ${uid}*\n\n`;
-  text += `👥 Мои друзья (${friends.length}):\n`;
-  text += friends.length ? friends.map(f => `• ${f.name} (${f.user_id})`).join('\n') : '— нет —';
-  text += `\n\n📤 Мои инвайты (последние 5):\n`;
-  text += myInvites.length
-    ? myInvites.map(i => `• \`${i.code}\` → used_by: ${i.used_by ?? 'null'}`).join('\n')
-    : '— нет —';
-  text += `\n\n📥 Инвайты по которым я пришёл:\n`;
-  text += usedInvites.length
-    ? usedInvites.map(i => `• от ${i.creator_name}: \`${i.code}\``).join('\n')
-    : '— нет —';
-  text += `\n\n📊 В БД: ${totalUsers} юзеров, ${totalFriendships} дружб`;
+    let text = `Debug uid:${uid}\n\n`;
+    text += `Мои друзья (${friends.length}):\n`;
+    text += friends.length ? friends.map(f => `- ${f.name} (${f.user_id})`).join('\n') : 'нет';
+    text += `\n\nМои инвайты:\n`;
+    text += myInvites.length
+      ? myInvites.map(i => `- ${i.code} -> used_by:${i.used_by ?? 'null'}`).join('\n')
+      : 'нет';
+    text += `\n\nПришёл по инвайту от:\n`;
+    text += usedInvites.length
+      ? usedInvites.map(i => `- ${i.creator_name}: ${i.code}`).join('\n')
+      : 'нет';
+    text += `\n\nВ БД: ${totalUsers} юзеров, ${totalFriendships} дружб`;
 
-  await send(ctx.chat.id, text);
+    await ctx.reply(text);
+  } catch (e) {
+    console.error('[debug] error:', e.message);
+    await ctx.reply('Ошибка: ' + e.message);
+  }
 });
 
 // ─── /помощь ──────────────────────────────────────────────────────────────────

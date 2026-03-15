@@ -78,7 +78,6 @@ function showScreen(name, btn) {
   if (name === 'insights') loadInsights();
   if (name === 'entry') initEntry();
   if (name === 'ai') loadAiScreen();
-  if (name === 'friends') loadFriends();
 }
 
 // ─── Сегодня ─────────────────────────────────────────────────────────────────
@@ -521,90 +520,6 @@ async function requestAnalysis(type) {
     arr.textContent = '›';
     aiLoading = false;
   }
-}
-
-// ─── Друзья ───────────────────────────────────────────────────────────────────
-let inviteLink = '';
-
-async function loadFriends() {
-  try {
-    const { friends } = await api('GET', '/api/friends');
-    const list = document.getElementById('friends-list');
-    const empty = document.getElementById('friends-empty');
-
-    if (!friends.length) {
-      list.innerHTML = '';
-      empty.classList.remove('hidden');
-      return;
-    }
-    empty.classList.add('hidden');
-
-    list.innerHTML = friends.map(f => {
-      const initial = (f.name || '?')[0].toUpperCase();
-      const moodVal = f.avg_mood ? `${f.avg_mood}` : '—';
-      const compVal = f.completion_pct !== null ? `${f.completion_pct}%` : '—';
-
-      const miniChart = f.mood_history.length
-        ? `<div class="friend-chart">${f.mood_history.map(m => {
-            const pct = (m.mood_score / 10) * 100;
-            return `<div class="friend-bar-col">
-              <div class="friend-bar-inner"><div class="friend-bar" style="height:${pct}%"></div></div>
-              <div class="friend-bar-date">${fmtDateShort(m.date)}</div>
-            </div>`;
-          }).join('')}</div>` : '';
-
-      return `
-        <div class="friend-card">
-          <div class="friend-header">
-            <div class="friend-avatar">${initial}</div>
-            <div class="friend-name">${escHtml(f.name)}</div>
-          </div>
-          <div class="friend-stats">
-            <div class="friend-stat">
-              <div class="friend-stat-val">${moodVal}</div>
-              <div class="friend-stat-lbl">настроение / 10</div>
-            </div>
-            <div class="friend-stat">
-              <div class="friend-stat-val">${compVal}</div>
-              <div class="friend-stat-lbl">задач выполнено</div>
-            </div>
-          </div>
-          ${miniChart}
-        </div>`;
-    }).join('');
-  } catch (e) {
-    console.error('loadFriends:', e);
-    const errEl = document.getElementById('friends-error');
-    if (errEl) {
-      errEl.textContent = `Ошибка загрузки: ${e.message}`;
-      errEl.classList.remove('hidden');
-    }
-  }
-}
-
-async function createInvite() {
-  try {
-    const { link } = await api('POST', '/api/invite/create', {});
-    inviteLink = link;
-    document.getElementById('invite-link-text').textContent = link;
-    document.getElementById('invite-result').classList.remove('hidden');
-    tg.HapticFeedback?.notificationOccurred('success');
-  } catch (e) {
-    alert('Не удалось создать приглашение. Попробуй позже.');
-  }
-}
-
-function copyInvite() {
-  if (!inviteLink) return;
-  navigator.clipboard?.writeText(inviteLink).then(() => {
-    tg.HapticFeedback?.notificationOccurred('success');
-    const btn = document.querySelector('#invite-result .btn-primary');
-    if (btn) { btn.textContent = '✓ Скопировано!'; setTimeout(() => btn.textContent = '📋 Скопировать ссылку', 2000); }
-  }).catch(() => {
-    // Фолбэк для старых браузеров
-    const el = document.getElementById('invite-link-text');
-    el.click();
-  });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
