@@ -3,6 +3,7 @@ const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
 const db = require('./db');
+const { analyzeGeneral, analyzePsych, analyzeBalance } = require('./ai');
 
 const app = express();
 app.use(express.json());
@@ -63,7 +64,12 @@ function auth(req, res, next) {
 app.get('/api/today', auth, (req, res) => {
   const entry = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date = ?').get(req.uid, todayStr());
   const plans = db.prepare('SELECT * FROM plans WHERE user_id = ? AND plan_date = ? ORDER BY id').all(req.uid, todayStr());
-  res.json({ entry: entry || null, plans });
+  const entryCount = db.prepare('SELECT COUNT(*) as c FROM entries WHERE user_id = ?').get(req.uid).c;
+  // Последний AI-совет (из вчерашней или предыдущей записи)
+  const lastTip = db.prepare(
+    `SELECT ai_tip, date FROM entries WHERE user_id = ? AND ai_tip IS NOT NULL AND date < ? ORDER BY date DESC LIMIT 1`
+  ).get(req.uid, todayStr());
+  res.json({ entry: entry || null, plans, entry_count: entryCount, last_tip: lastTip || null });
 });
 
 // ─── GET /api/week ────────────────────────────────────────────────────────────
@@ -134,6 +140,35 @@ app.post('/api/entry', auth, (req, res) => {
   }
 
   res.json({ ok: true, entryDate, nextDay });
+});
+
+// ─── POST /api/analyze ───────────────────────────────────────────────────────
+app.post('/api/analyze', auth, async (req, res) => {
+  const { type } = req.body;
+  const uid = req.uid;
+
+  const LIMITS = { general: { days: 7, min: 2 }, psych: { days: 30, min: 5 }, balance: { days: 30, min: 5 } };
+  if (!LIMITS[type]) return res.status(400).json({ error: 'Неизвестный тип анализа' });
+
+  const { days, min } = LIMITS[type];
+  const entries = db.prepare('SELECT * FROM entries WHERE user_id = ? ORDER BY date DESC LIMIT ?').all(uid, days);
+  if (entries.length < min) {
+    return res.status(400).json({ error: `Нужно минимум ${min} записи для этого анализа. У тебя пока ${entries.length}.` });
+  }
+
+  const plans = db.prepare('SELECT * FROM plans WHERE user_id = ? ORDER BY plan_date DESC LIMIT 100').all(uid);
+  const user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
+
+  try {
+    let result;
+    if (type === 'general') result = await analyzeGeneral(entries, plans, entries.length, user);
+    if (type === 'psych')   result = await analyzePsych(entries, plans, entries.length, user);
+    if (type === 'balance') result = await analyzeBalance(entries, plans, user);
+    res.json({ result });
+  } catch (e) {
+    console.error('analyze error:', e.message);
+    res.status(500).json({ error: 'Ошибка AI. Попробуй позже.' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

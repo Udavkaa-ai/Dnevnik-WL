@@ -470,6 +470,7 @@ bot.on('text', async (ctx) => {
         const user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
         if (entry) {
           const tip = await dailyTip(entry, user);
+          db.prepare('UPDATE entries SET ai_tip = ? WHERE user_id = ? AND date = ?').run(tip, uid, entryDate);
           await send(uid, `💡 *Совет на завтра:*\n\n${tip}`);
         }
       } catch (e) { console.error('dailyTip:', e.message); }

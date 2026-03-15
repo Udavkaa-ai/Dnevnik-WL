@@ -44,7 +44,8 @@ db.exec(`
   );
 `);
 
-// Миграция: добавляем поля профиля если их нет
+// Миграции: добавляем поля если их нет
+try { db.exec(`ALTER TABLE entries ADD COLUMN ai_tip TEXT`); } catch (_) {}
 ['gender', 'family_status'].forEach(col => {
   try { db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch (_) {}
 });

@@ -61,6 +61,7 @@ function showScreen(name, btn) {
   if (name === 'history') loadHistory();
   if (name === 'mood') loadMood();
   if (name === 'entry') initEntry();
+  if (name === 'ai') loadAiScreen();
 }
 
 // ─── Сегодня ─────────────────────────────────────────────────────────────────
@@ -70,7 +71,12 @@ async function loadToday() {
     `${now.getDate()} ${MONTHS_GEN[now.getMonth()]} ${now.getFullYear()}`;
 
   try {
-    const { entry, plans } = await api('GET', '/api/today');
+    const { entry, plans, entry_count, last_tip } = await api('GET', '/api/today');
+
+    // Тизер AI
+    const teaser = document.getElementById('ai-teaser');
+    if (entry_count >= 3) teaser.classList.remove('hidden');
+    else teaser.classList.add('hidden');
 
     // Карточка итога дня
     const card = document.getElementById('today-entry-card');
@@ -330,6 +336,74 @@ async function loadMood() {
     }).join('');
   } catch (e) {
     console.error('loadMood:', e);
+  }
+}
+
+// ─── AI-анализ ────────────────────────────────────────────────────────────────
+const AI_LABELS = {
+  general: '📊 Общий анализ',
+  psych:   '🧠 Психологический анализ',
+  balance: '⚖️ Work-life баланс',
+};
+
+async function loadAiScreen() {
+  // Показываем совет дня если есть (подгружаем из today)
+  try {
+    const { last_tip } = await api('GET', '/api/today');
+    const tipCard = document.getElementById('ai-tip-card');
+    if (last_tip?.ai_tip) {
+      document.getElementById('ai-tip-text').textContent = last_tip.ai_tip;
+      tipCard.classList.remove('hidden');
+    } else {
+      tipCard.classList.add('hidden');
+    }
+  } catch (_) {}
+}
+
+let aiLoading = false;
+
+async function requestAnalysis(type) {
+  if (aiLoading) return;
+  aiLoading = true;
+
+  // Состояние кнопки
+  const btn = document.getElementById(`opt-${type}`);
+  const arr = document.getElementById(`arr-${type}`);
+  btn.classList.add('loading');
+  arr.textContent = '…';
+
+  // Скрываем предыдущий результат
+  document.getElementById('ai-result').classList.add('hidden');
+  document.getElementById('ai-need-more').classList.add('hidden');
+  document.getElementById('ai-loading').classList.remove('hidden');
+
+  // Скролл к загрузке
+  document.getElementById('ai-loading').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const { result } = await api('POST', '/api/analyze', { type });
+
+    document.getElementById('ai-result-label').textContent = AI_LABELS[type];
+    document.getElementById('ai-result-text').textContent = result;
+    document.getElementById('ai-result').classList.remove('hidden');
+    document.getElementById('ai-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    tg.HapticFeedback?.notificationOccurred('success');
+
+  } catch (e) {
+    let msg = 'Ошибка. Попробуй позже.';
+    try { msg = JSON.parse(e.message)?.error || msg; } catch (_) {}
+
+    const needMore = document.getElementById('ai-need-more');
+    document.getElementById('ai-need-more-text').textContent = msg;
+    needMore.classList.remove('hidden');
+    needMore.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    tg.HapticFeedback?.notificationOccurred('error');
+
+  } finally {
+    document.getElementById('ai-loading').classList.add('hidden');
+    btn.classList.remove('loading');
+    arr.textContent = '›';
+    aiLoading = false;
   }
 }
 

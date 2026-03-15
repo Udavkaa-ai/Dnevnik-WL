@@ -31,6 +31,16 @@
       <div class="empty-text">Планов на сегодня нет</div>
       <div class="empty-hint">Заполни вечерний итог</div>
     </div>
+
+    <!-- Тизер AI — показывается если есть достаточно записей -->
+    <div id="ai-teaser" class="ai-teaser hidden" onclick="showScreen('ai')">
+      <span class="ai-teaser-icon">✨</span>
+      <div class="ai-teaser-body">
+        <div class="ai-teaser-title">Готов AI-анализ твоего дневника</div>
+        <div class="ai-teaser-sub">Паттерны, советы и план — нажми чтобы посмотреть</div>
+      </div>
+      <span class="ai-teaser-arrow">›</span>
+    </div>
   </div>
 
   <!-- ── Итог ── -->
@@ -146,6 +156,88 @@
     </div>
   </div>
 
+  <!-- ── AI-анализ ── -->
+  <div id="screen-ai" class="screen">
+    <div class="page-header">
+      <div class="page-title">AI-советник</div>
+      <div class="page-subtitle">Анализ дневника и персональные инсайты</div>
+    </div>
+
+    <!-- Совет дня -->
+    <div id="ai-tip-card" class="card hidden">
+      <div class="card-label">💡 Совет дня</div>
+      <div id="ai-tip-text" class="ai-tip-text"></div>
+    </div>
+
+    <!-- Объяснение фичи -->
+    <div class="ai-intro card">
+      <div class="ai-intro-row">
+        <span class="ai-intro-icon">🤖</span>
+        <div class="ai-intro-text">AI читает твои записи, находит паттерны и предлагает конкретные активности — не абстрактные советы, а то что подходит именно тебе.</div>
+      </div>
+    </div>
+
+    <!-- Варианты анализа -->
+    <div class="ai-options-list">
+
+      <button class="ai-opt" onclick="requestAnalysis('general')" id="opt-general">
+        <div class="ai-opt-left">
+          <div class="ai-opt-icon">📊</div>
+          <div class="ai-opt-info">
+            <div class="ai-opt-title">Общий анализ</div>
+            <div class="ai-opt-desc">Главные темы, паттерны, динамика настроения</div>
+            <div class="ai-opt-meta">последние 7 дней · ~30 сек</div>
+          </div>
+        </div>
+        <div class="ai-opt-arrow" id="arr-general">›</div>
+      </button>
+
+      <button class="ai-opt" onclick="requestAnalysis('psych')" id="opt-psych">
+        <div class="ai-opt-left">
+          <div class="ai-opt-icon">🧠</div>
+          <div class="ai-opt-info">
+            <div class="ai-opt-title">Психологический анализ</div>
+            <div class="ai-opt-desc">Что заряжает, что сливает — 3 конкретные рекомендации</div>
+            <div class="ai-opt-meta">последние 30 дней · ~45 сек</div>
+          </div>
+        </div>
+        <div class="ai-opt-arrow" id="arr-psych">›</div>
+      </button>
+
+      <button class="ai-opt" onclick="requestAnalysis('balance')" id="opt-balance">
+        <div class="ai-opt-left">
+          <div class="ai-opt-icon">⚖️</div>
+          <div class="ai-opt-info">
+            <div class="ai-opt-title">Work-life баланс</div>
+            <div class="ai-opt-desc">Где перекос и конкретный план на ближайшую неделю</div>
+            <div class="ai-opt-meta">последние 30 дней · ~45 сек</div>
+          </div>
+        </div>
+        <div class="ai-opt-arrow" id="arr-balance">›</div>
+      </button>
+
+    </div>
+
+    <!-- Загрузка -->
+    <div id="ai-loading" class="ai-loading hidden">
+      <div class="ai-spinner"></div>
+      <div class="ai-loading-text">Анализирую записи...</div>
+    </div>
+
+    <!-- Результат -->
+    <div id="ai-result" class="card hidden">
+      <div class="card-label" id="ai-result-label"></div>
+      <div id="ai-result-text" class="ai-result-text"></div>
+    </div>
+
+    <!-- Мало данных -->
+    <div id="ai-need-more" class="card hidden">
+      <div class="ai-need-more-icon">📝</div>
+      <div id="ai-need-more-text" class="ai-need-more-text"></div>
+    </div>
+
+  </div>
+
 </div><!-- #app -->
 
 <nav class="bottom-nav">
@@ -163,7 +255,11 @@
   </button>
   <button class="nav-btn" data-screen="mood" onclick="showScreen('mood', this)">
     <span class="nav-icon">📊</span>
-    <span class="nav-label">Настроение</span>
+    <span class="nav-label">График</span>
+  </button>
+  <button class="nav-btn" data-screen="ai" onclick="showScreen('ai', this)">
+    <span class="nav-icon">✨</span>
+    <span class="nav-label">AI-анализ</span>
   </button>
 </nav>
 
