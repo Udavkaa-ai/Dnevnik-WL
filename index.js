@@ -486,12 +486,39 @@ bot.on('text', async (ctx) => {
 bot.start(async (ctx) => {
   const uid = ctx.from.id;
   const name = ctx.from.first_name || 'друг';
-  const existing = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
-  if (!existing) {
+  const payload = ctx.startPayload; // часть после /start (deep link)
+
+  // Убеждаемся что пользователь есть в БД (мог быть создан через webapp)
+  if (!db.prepare('SELECT 1 FROM users WHERE user_id = ?').get(uid)) {
     db.prepare('INSERT INTO users (user_id, name) VALUES (?, ?)').run(uid, name);
+  } else {
+    // Обновляем имя на случай если изменилось
+    db.prepare('UPDATE users SET name = ? WHERE user_id = ?').run(name, uid);
   }
 
-  const user = existing || db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
+  // ── Обработка invite deep link ─────────────────────────────────────────────
+  if (payload?.startsWith('invite_')) {
+    const code = payload.replace('invite_', '');
+    const invite = db.prepare('SELECT * FROM invites WHERE code = ? AND used_by IS NULL').get(code);
+
+    if (!invite) {
+      await ctx.reply('❌ Приглашение не найдено или уже использовано.');
+    } else if (invite.creator_id === uid) {
+      await ctx.reply('😄 Нельзя добавить себя в друзья — перешли ссылку другому человеку!');
+    } else {
+      // Создаём дружбу в обе стороны
+      db.prepare('UPDATE invites SET used_by = ? WHERE code = ?').run(uid, code);
+      db.prepare('INSERT OR IGNORE INTO friendships (user_id, friend_id) VALUES (?, ?)').run(invite.creator_id, uid);
+      db.prepare('INSERT OR IGNORE INTO friendships (user_id, friend_id) VALUES (?, ?)').run(uid, invite.creator_id);
+
+      const creator = db.prepare('SELECT name FROM users WHERE user_id = ?').get(invite.creator_id);
+      await send(invite.creator_id, `👥 *${name}* принял твоё приглашение! Теперь вы друзья — открой вкладку Друзья в дневнике.`);
+      await send(uid, `🤝 Отлично! Ты подружился с *${creator?.name || 'пользователем'}*.\n\nТеперь вы видите настроение и прогресс друг друга в дневнике.`);
+    }
+    // Продолжаем — показываем онбординг или приветствие
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
 
   // Если профиль не заполнен — запускаем анкету
   if (!user.gender) {
@@ -601,6 +628,30 @@ bot.action('profile:edit:family', async (ctx) => {
     ]).reply_markup
   );
   await ctx.answerCbQuery();
+});
+
+// ─── /друзья ──────────────────────────────────────────────────────────────────
+bot.command('друзья', async (ctx) => {
+  const uid = ctx.from.id;
+  const crypto = require('crypto');
+  const code = crypto.randomBytes(5).toString('hex');
+  db.prepare('INSERT INTO invites (code, creator_id) VALUES (?, ?)').run(code, uid);
+  const botUsername = ctx.botInfo?.username || process.env.BOT_USERNAME;
+  const link = `https://t.me/${botUsername}?start=invite_${code}`;
+
+  const friends = db.prepare(`
+    SELECT u.name FROM friendships f JOIN users u ON u.user_id = f.friend_id WHERE f.user_id = ?
+  `).all(uid);
+
+  let text = `👥 *Друзья в дневнике*\n\n`;
+  if (friends.length) {
+    text += `Твои друзья:\n${friends.map(f => `• ${f.name}`).join('\n')}\n\n`;
+  } else {
+    text += `Друзей пока нет.\n\n`;
+  }
+  text += `📤 *Пригласи друга:*\n\`${link}\`\n\n_Ссылка одноразовая. Когда друг перейдёт — вы увидите прогресс друг друга в приложении._`;
+
+  await send(ctx.chat.id, text);
 });
 
 // ─── /помощь ──────────────────────────────────────────────────────────────────

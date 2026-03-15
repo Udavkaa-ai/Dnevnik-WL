@@ -438,3 +438,86 @@ body {
 .nav-btn.active { color: var(--btn); }
 .nav-icon { font-size: 22px; line-height: 1; }
 .nav-label { font-size: 11px; font-weight: 500; }
+
+/* ── Центральная кнопка Дневник ── */
+.nav-btn-center { position: relative; }
+.nav-center-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--btn);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -20px;
+  margin-bottom: 2px;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--btn) 45%, transparent);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.nav-btn-center .nav-icon { font-size: 26px; }
+.nav-btn-center:active .nav-center-wrap { transform: scale(0.92); box-shadow: none; }
+.nav-btn-center.active .nav-label { color: var(--btn); }
+.nav-btn-center .nav-center-wrap .nav-icon { color: #fff; }
+
+/* ── Section header ── */
+.section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 16px 6px;
+}
+
+/* ── Friends screen ── */
+.friends-invite-card { margin: 0 12px 10px; }
+.friends-invite-text { font-size: 14px; color: var(--hint); margin-bottom: 12px; line-height: 1.5; }
+.invite-link {
+  font-size: 13px;
+  color: var(--btn);
+  word-break: break-all;
+  background: var(--secondary-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.invite-hint { font-size: 12px; color: var(--hint); margin-top: 8px; text-align: center; }
+
+.friend-card {
+  background: var(--bg);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 0 12px 10px;
+}
+.friend-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--btn) 15%, var(--bg));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--btn);
+  flex-shrink: 0;
+}
+.friend-name { font-size: 16px; font-weight: 600; }
+.friend-stats { display: flex; gap: 10px; margin-bottom: 12px; }
+.friend-stat {
+  flex: 1;
+  background: var(--secondary-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.friend-stat-val { font-size: 20px; font-weight: 700; color: var(--btn); line-height: 1; }
+.friend-stat-lbl { font-size: 11px; color: var(--hint); margin-top: 3px; }
+.friend-chart { display: flex; gap: 3px; align-items: flex-end; height: 40px; }
+.friend-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; }
+.friend-bar-inner { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.friend-bar { width: 100%; border-radius: 2px 2px 0 0; background: var(--btn); opacity: 0.7; min-height: 3px; }
+.friend-bar-date { font-size: 9px; color: var(--hint); }

@@ -11,7 +11,7 @@
 <div id="app">
 
   <!-- ── Сегодня ── -->
-  <div id="screen-today" class="screen active">
+  <div id="screen-today" class="screen">
     <div class="page-header">
       <div class="page-title">Сегодня</div>
       <div class="page-subtitle" id="today-date"></div>
@@ -128,31 +128,26 @@
 
   </div>
 
-  <!-- ── История ── -->
-  <div id="screen-history" class="screen">
+  <!-- ── Инсайты (История + График) ── -->
+  <div id="screen-insights" class="screen">
     <div class="page-header">
-      <div class="page-title">История</div>
-      <div class="page-subtitle">Последние 7 дней</div>
+      <div class="page-title">Инсайты</div>
     </div>
-    <div id="history-list"></div>
-    <div id="history-empty" class="empty hidden">
-      <div class="empty-icon">📖</div>
-      <div class="empty-text">Записей пока нет</div>
-    </div>
-  </div>
 
-  <!-- ── Настроение ── -->
-  <div id="screen-mood" class="screen">
-    <div class="page-header">
-      <div class="page-title">Настроение</div>
-      <div class="page-subtitle">Последние 14 дней</div>
-    </div>
+    <div class="section-header">📊 Настроение</div>
     <div id="mood-chart-wrap" class="chart-wrap">
       <div id="mood-chart" class="mood-chart"></div>
     </div>
     <div id="mood-empty" class="empty hidden">
-      <div class="empty-icon">📊</div>
+      <div class="empty-icon">😶</div>
       <div class="empty-text">Оценок пока нет</div>
+    </div>
+
+    <div class="section-header" id="history-section-label" style="margin-top:8px">📅 Последние записи</div>
+    <div id="history-list"></div>
+    <div id="history-empty" class="empty hidden">
+      <div class="empty-icon">📖</div>
+      <div class="empty-text">Записей пока нет</div>
     </div>
   </div>
 
@@ -238,28 +233,58 @@
 
   </div>
 
+  <!-- ── Друзья ── -->
+  <div id="screen-friends" class="screen">
+    <div class="page-header">
+      <div class="page-title">Друзья</div>
+      <div class="page-subtitle">Настроение и прогресс</div>
+    </div>
+
+    <div class="card friends-invite-card">
+      <div class="friends-invite-text">Пригласи друга — смотрите прогресс вместе 👀</div>
+      <button class="btn-primary" onclick="createInvite()">📤 Пригласить друга</button>
+    </div>
+
+    <div id="invite-result" class="card hidden">
+      <div class="card-label">Ссылка-приглашение</div>
+      <div id="invite-link-text" class="invite-link"></div>
+      <button class="btn-primary" style="margin-top:10px" onclick="copyInvite()">📋 Скопировать ссылку</button>
+      <div class="invite-hint">Одноразовая — перешли другу в любом мессенджере</div>
+    </div>
+
+    <div id="friends-list"></div>
+
+    <div id="friends-empty" class="empty hidden">
+      <div class="empty-icon">👥</div>
+      <div class="empty-text">Друзей пока нет</div>
+      <div class="empty-hint">Нажми «Пригласить» и отправь ссылку другу</div>
+    </div>
+  </div>
+
 </div><!-- #app -->
 
 <nav class="bottom-nav">
-  <button class="nav-btn active" data-screen="today" onclick="showScreen('today', this)">
-    <span class="nav-icon">☀️</span>
-    <span class="nav-label">Сегодня</span>
+  <button class="nav-btn" data-screen="today" onclick="showScreen('today', this)">
+    <span class="nav-icon">✅</span>
+    <span class="nav-label">Сделано</span>
   </button>
-  <button class="nav-btn" data-screen="entry" onclick="showScreen('entry', this)">
-    <span class="nav-icon">📝</span>
-    <span class="nav-label">Итог</span>
+  <button class="nav-btn" data-screen="insights" onclick="showScreen('insights', this)">
+    <span class="nav-icon">📈</span>
+    <span class="nav-label">Инсайты</span>
   </button>
-  <button class="nav-btn" data-screen="history" onclick="showScreen('history', this)">
-    <span class="nav-icon">📅</span>
-    <span class="nav-label">История</span>
-  </button>
-  <button class="nav-btn" data-screen="mood" onclick="showScreen('mood', this)">
-    <span class="nav-icon">📊</span>
-    <span class="nav-label">График</span>
+  <button class="nav-btn nav-btn-center active" data-screen="entry" onclick="showScreen('entry', this)">
+    <div class="nav-center-wrap">
+      <span class="nav-icon">📖</span>
+    </div>
+    <span class="nav-label">Дневник</span>
   </button>
   <button class="nav-btn" data-screen="ai" onclick="showScreen('ai', this)">
     <span class="nav-icon">✨</span>
-    <span class="nav-label">AI-анализ</span>
+    <span class="nav-label">AI</span>
+  </button>
+  <button class="nav-btn" data-screen="friends" onclick="showScreen('friends', this)">
+    <span class="nav-icon">👥</span>
+    <span class="nav-label">Друзья</span>
   </button>
 </nav>
 

@@ -58,10 +58,10 @@ function showScreen(name, btn) {
   if (navBtn) navBtn.classList.add('active');
 
   if (name === 'today') loadToday();
-  if (name === 'history') loadHistory();
-  if (name === 'mood') loadMood();
+  if (name === 'insights') loadInsights();
   if (name === 'entry') initEntry();
   if (name === 'ai') loadAiScreen();
+  if (name === 'friends') loadFriends();
 }
 
 // ─── Сегодня ─────────────────────────────────────────────────────────────────
@@ -276,66 +276,55 @@ async function submitEntry() {
   }
 }
 
-// ─── История ─────────────────────────────────────────────────────────────────
-async function loadHistory() {
+// ─── Инсайты (История + График настроения) ───────────────────────────────────
+async function loadInsights() {
   try {
-    const { entries } = await api('GET', '/api/week');
-    const list = document.getElementById('history-list');
-    const empty = document.getElementById('history-empty');
+    const [{ mood }, { entries }] = await Promise.all([
+      api('GET', '/api/mood'),
+      api('GET', '/api/week'),
+    ]);
 
-    if (!entries.length) {
-      list.innerHTML = '';
-      empty.classList.remove('hidden');
-      return;
-    }
-
-    empty.classList.add('hidden');
-    list.innerHTML = entries.map(e => `
-      <div class="history-item">
-        <div class="history-date">${fmtDateLong(e.date)}</div>
-        <div class="history-done">${escHtml(e.done)}</div>
-        ${e.not_done && e.not_done.toLowerCase() !== 'ничего'
-          ? `<div class="history-not-done">❌ ${escHtml(e.not_done)}</div>` : ''}
-        ${e.mood_score
-          ? `<span class="history-mood">${moodEmoji(e.mood_score)} ${e.mood_score}/10</span>` : ''}
-      </div>
-    `).join('');
-  } catch (e) {
-    console.error('loadHistory:', e);
-  }
-}
-
-// ─── Настроение ───────────────────────────────────────────────────────────────
-async function loadMood() {
-  try {
-    const { mood } = await api('GET', '/api/mood');
+    // График
     const chart = document.getElementById('mood-chart');
     const wrap = document.getElementById('mood-chart-wrap');
-    const empty = document.getElementById('mood-empty');
-
-    if (!mood.length) {
+    const moodEmpty = document.getElementById('mood-empty');
+    if (mood.length) {
+      wrap.classList.remove('hidden');
+      moodEmpty.classList.add('hidden');
+      chart.innerHTML = mood.map(({ date, mood_score }) => {
+        const pct = (mood_score / 10) * 100;
+        return `
+          <div class="bar-col">
+            <div class="bar-inner"><div class="bar" style="height:${pct}%"></div></div>
+            <div class="bar-score">${mood_score}</div>
+            <div class="bar-date">${fmtDateShort(date)}</div>
+          </div>`;
+      }).join('');
+    } else {
       wrap.classList.add('hidden');
-      empty.classList.remove('hidden');
-      return;
+      moodEmpty.classList.remove('hidden');
     }
 
-    wrap.classList.remove('hidden');
-    empty.classList.add('hidden');
-
-    chart.innerHTML = mood.map(({ date, mood_score }) => {
-      const pct = (mood_score / 10) * 100;
-      return `
-        <div class="bar-col">
-          <div class="bar-inner">
-            <div class="bar" style="height:${pct}%"></div>
-          </div>
-          <div class="bar-score">${mood_score}</div>
-          <div class="bar-date">${fmtDateShort(date)}</div>
-        </div>
-      `;
-    }).join('');
+    // История
+    const list = document.getElementById('history-list');
+    const histEmpty = document.getElementById('history-empty');
+    if (entries.length) {
+      histEmpty.classList.add('hidden');
+      list.innerHTML = entries.map(e => `
+        <div class="history-item">
+          <div class="history-date">${fmtDateLong(e.date)}</div>
+          <div class="history-done">${escHtml(e.done)}</div>
+          ${e.not_done && e.not_done.toLowerCase() !== 'ничего'
+            ? `<div class="history-not-done">❌ ${escHtml(e.not_done)}</div>` : ''}
+          ${e.mood_score
+            ? `<span class="history-mood">${moodEmoji(e.mood_score)} ${e.mood_score}/10</span>` : ''}
+        </div>`).join('');
+    } else {
+      list.innerHTML = '';
+      histEmpty.classList.remove('hidden');
+    }
   } catch (e) {
-    console.error('loadMood:', e);
+    console.error('loadInsights:', e);
   }
 }
 
@@ -407,5 +396,85 @@ async function requestAnalysis(type) {
   }
 }
 
+// ─── Друзья ───────────────────────────────────────────────────────────────────
+let inviteLink = '';
+
+async function loadFriends() {
+  try {
+    const { friends } = await api('GET', '/api/friends');
+    const list = document.getElementById('friends-list');
+    const empty = document.getElementById('friends-empty');
+
+    if (!friends.length) {
+      list.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+
+    list.innerHTML = friends.map(f => {
+      const initial = (f.name || '?')[0].toUpperCase();
+      const moodVal = f.avg_mood ? `${f.avg_mood}` : '—';
+      const compVal = f.completion_pct !== null ? `${f.completion_pct}%` : '—';
+
+      const miniChart = f.mood_history.length
+        ? `<div class="friend-chart">${f.mood_history.map(m => {
+            const pct = (m.mood_score / 10) * 100;
+            return `<div class="friend-bar-col">
+              <div class="friend-bar-inner"><div class="friend-bar" style="height:${pct}%"></div></div>
+              <div class="friend-bar-date">${fmtDateShort(m.date)}</div>
+            </div>`;
+          }).join('')}</div>` : '';
+
+      return `
+        <div class="friend-card">
+          <div class="friend-header">
+            <div class="friend-avatar">${initial}</div>
+            <div class="friend-name">${escHtml(f.name)}</div>
+          </div>
+          <div class="friend-stats">
+            <div class="friend-stat">
+              <div class="friend-stat-val">${moodVal}</div>
+              <div class="friend-stat-lbl">настроение / 10</div>
+            </div>
+            <div class="friend-stat">
+              <div class="friend-stat-val">${compVal}</div>
+              <div class="friend-stat-lbl">задач выполнено</div>
+            </div>
+          </div>
+          ${miniChart}
+        </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadFriends:', e);
+  }
+}
+
+async function createInvite() {
+  try {
+    const { link } = await api('POST', '/api/invite/create', {});
+    inviteLink = link;
+    document.getElementById('invite-link-text').textContent = link;
+    document.getElementById('invite-result').classList.remove('hidden');
+    tg.HapticFeedback?.notificationOccurred('success');
+  } catch (e) {
+    alert('Не удалось создать приглашение. Попробуй позже.');
+  }
+}
+
+function copyInvite() {
+  if (!inviteLink) return;
+  navigator.clipboard?.writeText(inviteLink).then(() => {
+    tg.HapticFeedback?.notificationOccurred('success');
+    const btn = document.querySelector('#invite-result .btn-primary');
+    if (btn) { btn.textContent = '✓ Скопировано!'; setTimeout(() => btn.textContent = '📋 Скопировать ссылку', 2000); }
+  }).catch(() => {
+    // Фолбэк для старых браузеров
+    const el = document.getElementById('invite-link-text');
+    el.click();
+  });
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
-loadToday();
+// Открываем Дневник по умолчанию
+showScreen('entry');

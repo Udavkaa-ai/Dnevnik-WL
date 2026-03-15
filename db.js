@@ -42,6 +42,20 @@ db.exec(`
     chat_id    INTEGER NOT NULL,
     PRIMARY KEY (user_id, plan_date)
   );
+
+  CREATE TABLE IF NOT EXISTS invites (
+    code        TEXT PRIMARY KEY,
+    creator_id  INTEGER NOT NULL,
+    used_by     INTEGER,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS friendships (
+    user_id    INTEGER NOT NULL,
+    friend_id  INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, friend_id)
+  );
 `);
 
 // Миграции: добавляем поля если их нет

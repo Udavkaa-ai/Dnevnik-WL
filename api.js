@@ -142,6 +142,52 @@ app.post('/api/entry', auth, (req, res) => {
   res.json({ ok: true, entryDate, nextDay });
 });
 
+// ─── POST /api/invite/create ─────────────────────────────────────────────────
+app.post('/api/invite/create', auth, (req, res) => {
+  const code = require('crypto').randomBytes(5).toString('hex');
+  db.prepare('INSERT INTO invites (code, creator_id) VALUES (?, ?)').run(code, req.uid);
+  const botUsername = process.env.BOT_USERNAME;
+  const link = `https://t.me/${botUsername}?start=invite_${code}`;
+  res.json({ code, link });
+});
+
+// ─── GET /api/friends ─────────────────────────────────────────────────────────
+app.get('/api/friends', auth, (req, res) => {
+  const friends = db.prepare(`
+    SELECT u.user_id, u.name
+    FROM friendships f
+    JOIN users u ON u.user_id = f.friend_id
+    WHERE f.user_id = ?
+    ORDER BY f.created_at DESC
+  `).all(req.uid);
+
+  const result = friends.map(friend => {
+    const avgMood = db.prepare(`
+      SELECT ROUND(AVG(mood_score), 1) as avg, COUNT(*) as cnt
+      FROM entries WHERE user_id = ? AND date >= date('now', '-7 days') AND mood_score IS NOT NULL
+    `).get(friend.user_id);
+
+    const plansAll  = db.prepare(`SELECT COUNT(*) as c FROM plans WHERE user_id = ? AND plan_date >= date('now', '-7 days')`).get(friend.user_id).c;
+    const plansDone = db.prepare(`SELECT COUNT(*) as c FROM plans WHERE user_id = ? AND plan_date >= date('now', '-7 days') AND status = 'done'`).get(friend.user_id).c;
+
+    const moodHistory = db.prepare(`
+      SELECT date, mood_score FROM entries
+      WHERE user_id = ? AND date >= date('now', '-7 days') AND mood_score IS NOT NULL
+      ORDER BY date
+    `).all(friend.user_id);
+
+    return {
+      user_id: friend.user_id,
+      name: friend.name || 'Друг',
+      avg_mood: avgMood?.avg || null,
+      completion_pct: plansAll > 0 ? Math.round((plansDone / plansAll) * 100) : null,
+      mood_history: moodHistory,
+    };
+  });
+
+  res.json({ friends: result });
+});
+
 // ─── POST /api/analyze ───────────────────────────────────────────────────────
 app.post('/api/analyze', auth, async (req, res) => {
   const { type } = req.body;
