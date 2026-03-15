@@ -1,5 +1,5 @@
 require('dotenv').config();
-require('./api'); // Express API + static webapp
+const { setBotUsername } = require('./api'); // Express API + static webapp
 const { Telegraf, Markup } = require('telegraf');
 const cron = require('node-cron');
 const db = require('./db');
@@ -522,16 +522,34 @@ bot.start(async (ctx) => {
 
   // Если профиль не заполнен — запускаем анкету
   if (!user.gender) {
-    await send(ctx.chat.id,
-      `Привет, ${name}! 👋 Я бот-дневник с AI-советами по work-life балансу.\n\n` +
+    // Экранируем спецсимволы MarkdownV1 в имени (_, *, `)
+    const safeName = name.replace(/([_*`])/g, '\\$1');
+    await bot.telegram.sendMessage(ctx.chat.id,
+      `Привет, ${safeName}! 👋 Я бот-дневник с AI-советами по work-life балансу.\n\n` +
       `Чтобы советы были точнее — пара вопросов. *Ты:*`,
-      Markup.inlineKeyboard([
-        [
-          Markup.button.callback('👨 Мужчина', 'reg:gender:male'),
-          Markup.button.callback('👩 Женщина', 'reg:gender:female'),
-        ]
-      ])
-    );
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.callback('👨 Мужчина', 'reg:gender:male'),
+            Markup.button.callback('👩 Женщина', 'reg:gender:female'),
+          ]
+        ])
+      }
+    ).catch(async (e) => {
+      console.error('[/start questionnaire] Markdown error, fallback:', e.message);
+      // Фолбэк — без форматирования
+      await bot.telegram.sendMessage(ctx.chat.id,
+        `Привет, ${name}! 👋 Я бот-дневник с AI-советами по work-life балансу.\n\n` +
+        `Чтобы советы были точнее — пара вопросов. Ты:`,
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback('👨 Мужчина', 'reg:gender:male'),
+            Markup.button.callback('👩 Женщина', 'reg:gender:female'),
+          ]
+        ])
+      );
+    });
     return;
   }
 
@@ -917,7 +935,12 @@ cron.schedule('* * * * *', async () => {
 
 // ─── Запуск ───────────────────────────────────────────────────────────────────
 bot.launch()
-  .then(() => console.log('✅ Бот запущен'))
+  .then(() => {
+    const username = bot.botInfo?.username || '';
+    console.log(`✅ Бот запущен (@${username})`);
+    if (username) setBotUsername(username);
+    else console.warn('⚠️  Не удалось получить username бота — invite-ссылки могут не работать');
+  })
   .catch(e => console.error('❌ Ошибка запуска бота:', e.message));
 
 // Не даём процессу падать от ошибок бота — Express продолжает работать

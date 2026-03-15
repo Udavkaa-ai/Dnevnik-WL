@@ -5,8 +5,21 @@ const path = require('path');
 const db = require('./db');
 const { analyzeGeneral, analyzePsych, analyzeBalance } = require('./ai');
 
+// Логгер запросов
+const logReq = (req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    if (req.path.startsWith('/api')) {
+      console.log(`[${res.statusCode}] ${req.method} ${req.path} — ${ms}ms`);
+    }
+  });
+  next();
+};
+
 const app = express();
 app.use(express.json());
+app.use(logReq);
 app.use(express.static(path.join(__dirname, 'webapp')));
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
@@ -43,20 +56,27 @@ function validateInitData(initData) {
   }
 }
 
+// ─── Shared state (bot username устанавливается из index.js после launch) ─────
+let _botUsername = process.env.BOT_USERNAME || '';
+function setBotUsername(name) { _botUsername = name; }
+
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 function auth(req, res, next) {
   const initData = req.headers['x-init-data'];
-  if (!initData) return res.status(401).json({ error: 'Unauthorized' });
-
-  const user = validateInitData(initData);
-  if (!user?.id) return res.status(401).json({ error: 'Invalid initData' });
-
-  req.uid = user.id;
-
-  if (!db.prepare('SELECT 1 FROM users WHERE user_id = ?').get(req.uid)) {
-    db.prepare('INSERT INTO users (user_id, name) VALUES (?, ?)').run(req.uid, user.first_name || '');
+  if (!initData) {
+    console.warn(`[auth] 401 — нет x-init-data, path=${req.path}`);
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const user = validateInitData(initData);
+  if (!user?.id) {
+    console.warn(`[auth] 401 — невалидный initData, path=${req.path}`);
+    return res.status(401).json({ error: 'Invalid initData' });
+  }
+
+  req.uid = user.id;
+  // INSERT OR IGNORE чтобы избежать race condition
+  db.prepare('INSERT OR IGNORE INTO users (user_id, name) VALUES (?, ?)').run(req.uid, user.first_name || '');
   next();
 }
 
@@ -128,7 +148,9 @@ app.patch('/api/profile', auth, (req, res) => {
 
 // ─── POST /api/entry ─────────────────────────────────────────────────────────
 app.post('/api/entry', auth, (req, res) => {
+  console.log(`[POST /api/entry] uid=${req.uid} body=${JSON.stringify(req.body).slice(0,200)}`);
   const { done, not_done, mood_score, plans, date } = req.body;
+  try {
 
   // Дата из тела или сегодня; не позволяем будущие даты
   const entryDate = date && date <= todayStr() ? date : todayStr();
@@ -157,15 +179,24 @@ app.post('/api/entry', auth, (req, res) => {
     plans.filter(t => t?.trim()).forEach(t => insert.run(req.uid, nextDay, t.trim()));
   }
 
-  res.json({ ok: true, entryDate, nextDay });
+    console.log(`[POST /api/entry] ok — uid=${req.uid} date=${entryDate}`);
+    res.json({ ok: true, entryDate, nextDay });
+  } catch (e) {
+    console.error(`[POST /api/entry] ERROR uid=${req.uid}:`, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── POST /api/invite/create ─────────────────────────────────────────────────
 app.post('/api/invite/create', auth, (req, res) => {
-  const code = require('crypto').randomBytes(5).toString('hex');
+  if (!_botUsername) {
+    console.error('[invite/create] BOT_USERNAME не задан — invite-ссылка будет нерабочей');
+    return res.status(500).json({ error: 'Бот ещё не запустился. Попробуй через несколько секунд.' });
+  }
+  const code = crypto.randomBytes(5).toString('hex');
   db.prepare('INSERT INTO invites (code, creator_id) VALUES (?, ?)').run(code, req.uid);
-  const botUsername = process.env.BOT_USERNAME;
-  const link = `https://t.me/${botUsername}?start=invite_${code}`;
+  const link = `https://t.me/${_botUsername}?start=invite_${code}`;
+  console.log(`[invite/create] uid=${req.uid} code=${code} link=${link}`);
   res.json({ code, link });
 });
 
@@ -235,5 +266,13 @@ app.post('/api/analyze', auth, async (req, res) => {
   }
 });
 
+// ─── Глобальный обработчик ошибок Express ────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error(`[Express error] ${req.method} ${req.path}:`, err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🌐 API на порту ${PORT}`));
+
+module.exports = { setBotUsername };

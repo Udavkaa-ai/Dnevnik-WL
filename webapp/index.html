@@ -43,6 +43,21 @@
     </div>
   </div>
 
+  <!-- ── Баннер незаполненного профиля ── -->
+  <div id="profile-banner" class="profile-banner hidden">
+    <div class="profile-banner-title">👤 Расскажи о себе — советы станут точнее</div>
+    <div class="profile-banner-row">
+      <button class="profile-btn" data-field="gender" data-value="male" onclick="setProfileField('gender','male')">👨 Мужчина</button>
+      <button class="profile-btn" data-field="gender" data-value="female" onclick="setProfileField('gender','female')">👩 Женщина</button>
+    </div>
+    <div class="profile-banner-row">
+      <button class="profile-btn" data-field="family_status" data-value="single" onclick="setProfileField('family_status','single')">🧍 Один/Одна</button>
+      <button class="profile-btn" data-field="family_status" data-value="partner" onclick="setProfileField('family_status','partner')">❤️ Пара</button>
+      <button class="profile-btn" data-field="family_status" data-value="married" onclick="setProfileField('family_status','married')">💍 Брак</button>
+      <button class="profile-btn" data-field="family_status" data-value="children" onclick="setProfileField('family_status','children')">👨‍👩‍👧 Дети</button>
+    </div>
+  </div>
+
   <!-- ── Итог ── -->
   <div id="screen-entry" class="screen">
 

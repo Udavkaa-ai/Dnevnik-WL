@@ -4,16 +4,30 @@ tg.expand();
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
-  const res = await fetch(path, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-init-data': tg.initData || '',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000); // 20с таймаут
+  try {
+    const res = await fetch(path, {
+      method,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-init-data': tg.initData || '',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { msg = (await res.json()).error || msg; } catch (_) { try { msg = await res.text() || msg; } catch (_) {} }
+      throw new Error(msg);
+    }
+    return res.json();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Сервер не ответил за 20 секунд. Проверь соединение.');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
@@ -489,5 +503,42 @@ function copyInvite() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-// Открываем Дневник по умолчанию
-showScreen('entry');
+async function init() {
+  // Проверяем профиль — если не заполнен, показываем модал
+  try {
+    const profile = await api('GET', '/api/profile');
+    if (!profile.gender) showProfileSetupBanner();
+  } catch (_) {}
+  showScreen('entry');
+}
+
+function showProfileSetupBanner() {
+  const banner = document.getElementById('profile-banner');
+  if (banner) banner.classList.remove('hidden');
+}
+
+function hideProfileBanner() {
+  const banner = document.getElementById('profile-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
+async function setProfileField(field, value) {
+  try {
+    await api('PATCH', '/api/profile', { [field]: value });
+    // Обновляем кнопку
+    document.querySelectorAll(`.profile-btn[data-field="${field}"]`).forEach(b => {
+      b.classList.toggle('selected', b.dataset.value === value);
+    });
+    // Если оба поля заполнены — скрываем баннер
+    const gender = document.querySelector('.profile-btn[data-field="gender"].selected');
+    const family = document.querySelector('.profile-btn[data-field="family_status"].selected');
+    if (gender && family) {
+      setTimeout(hideProfileBanner, 500);
+      tg.HapticFeedback?.notificationOccurred('success');
+    }
+  } catch (e) {
+    console.error('setProfileField:', e);
+  }
+}
+
+init();

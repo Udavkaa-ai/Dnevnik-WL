@@ -196,6 +196,37 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Баннер профиля ── */
+.profile-banner {
+  background: var(--bg);
+  border-radius: 14px;
+  margin: 10px 12px;
+  padding: 14px;
+  border: 1.5px solid color-mix(in srgb, var(--btn) 30%, transparent);
+}
+.profile-banner-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.profile-banner-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.profile-banner-row:last-child { margin-bottom: 0; }
+.profile-btn {
+  flex: 1;
+  min-width: 70px;
+  background: var(--secondary-bg);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  padding: 8px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.profile-btn.selected {
+  border-color: var(--btn);
+  background: color-mix(in srgb, var(--btn) 12%, var(--bg));
+  font-weight: 600;
+}
+.profile-btn:active { opacity: 0.75; }
+
 /* ── Кнопки шага (Далее + Пропустить) ── */
 .step-actions {
   display: flex;
