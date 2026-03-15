@@ -44,4 +44,9 @@ db.exec(`
   );
 `);
 
+// Миграция: добавляем поля профиля если их нет
+['gender', 'family_status'].forEach(col => {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch (_) {}
+});
+
 module.exports = db;

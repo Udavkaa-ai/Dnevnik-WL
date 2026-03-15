@@ -122,14 +122,23 @@ async function togglePlan(id, el) {
 // ─── Итог (форма) ─────────────────────────────────────────────────────────────
 let selectedMood = 5;
 let taskList = [];
+let selectedEntryDate = null; // null = сегодня
 
 function initEntry() {
-  showStep(1);
+  showStep(0);
+  selectedEntryDate = null;
   document.getElementById('input-done').value = '';
   document.getElementById('input-not-done').value = '';
   selectedMood = 5;
   taskList = [];
   renderTaskList();
+
+  // Установить max дату в custom input = сегодня
+  document.getElementById('date-custom-input').max = todayStr();
+  document.getElementById('date-custom-input').value = '';
+
+  // Снять выделение с кнопок дат
+  document.querySelectorAll('.date-opt-btn').forEach(b => b.classList.remove('selected'));
 
   // Сетка оценок
   const grid = document.getElementById('mood-grid');
@@ -142,6 +151,30 @@ function initEntry() {
     grid.appendChild(btn);
   }
   updateMoodDisplay(5);
+}
+
+function selectEntryDate(type) {
+  if (type === 'today') {
+    selectedEntryDate = todayStr();
+    document.querySelectorAll('.date-opt-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('date-today-btn').classList.add('selected');
+    setTimeout(() => showStep(1), 200);
+  } else if (type === 'yesterday') {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    selectedEntryDate = d.toISOString().split('T')[0];
+    document.querySelectorAll('.date-opt-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('date-yesterday-btn').classList.add('selected');
+    setTimeout(() => showStep(1), 200);
+  } else if (type === 'custom') {
+    const val = document.getElementById('date-custom-input').value;
+    if (!val) {
+      tg.HapticFeedback?.notificationOccurred('error');
+      return;
+    }
+    selectedEntryDate = val;
+    showStep(1);
+  }
 }
 
 function showStep(n) {
@@ -224,6 +257,7 @@ async function submitEntry() {
       not_done: notDone,
       mood_score: selectedMood,
       plans: taskList,
+      date: selectedEntryDate || todayStr(),
     });
     tg.HapticFeedback?.notificationOccurred('success');
     showStep('success');

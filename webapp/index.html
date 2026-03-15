@@ -36,7 +36,26 @@
   <!-- ── Итог ── -->
   <div id="screen-entry" class="screen">
 
-    <div id="step-1" class="step active">
+    <div id="step-0" class="step active">
+      <div class="step-title">За какой день?</div>
+      <div class="date-options">
+        <button class="date-opt-btn" id="date-today-btn" onclick="selectEntryDate('today')">
+          <span class="date-opt-icon">☀️</span>
+          <span class="date-opt-label">Сегодня</span>
+        </button>
+        <button class="date-opt-btn" id="date-yesterday-btn" onclick="selectEntryDate('yesterday')">
+          <span class="date-opt-icon">🌙</span>
+          <span class="date-opt-label">Вчера</span>
+        </button>
+      </div>
+      <div class="date-custom-row">
+        <span class="date-custom-label">Другая дата:</span>
+        <input type="date" id="date-custom-input" class="date-input">
+        <button class="btn-sm" onclick="selectEntryDate('custom')">Выбрать</button>
+      </div>
+    </div>
+
+    <div id="step-1" class="step">
       <div class="step-dots">
         <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       </div>

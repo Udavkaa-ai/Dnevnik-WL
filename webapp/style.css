@@ -271,6 +271,65 @@ body {
 .bar-score { font-size: 11px; color: var(--hint); font-weight: 600; }
 .bar-date { font-size: 10px; color: var(--hint); white-space: nowrap; }
 
+/* ── Date picker (step-0) ── */
+.date-options {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.date-opt-btn {
+  flex: 1;
+  background: var(--bg);
+  border: 2px solid transparent;
+  border-radius: 16px;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.date-opt-btn.selected {
+  border-color: var(--btn);
+  background: color-mix(in srgb, var(--btn) 10%, var(--bg));
+}
+.date-opt-btn:active { opacity: 0.7; }
+.date-opt-icon { font-size: 32px; }
+.date-opt-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.date-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.date-custom-label { font-size: 14px; color: var(--hint); flex-shrink: 0; }
+.date-input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+}
+.btn-sm {
+  background: var(--btn);
+  color: var(--btn-text);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.btn-sm:active { opacity: 0.8; }
+
 /* ── Bottom Nav ── */
 .bottom-nav {
   position: fixed;

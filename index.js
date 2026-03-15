@@ -37,11 +37,20 @@ const HINT = {
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 function todayStr() { return new Date().toISOString().split('T')[0]; }
+function yesterdayStr() {
+  const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0];
+}
 function tomorrowStr() {
   const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0];
 }
 function dayAfterStr() {
   const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0];
+}
+// Следующий день после произвольной даты
+function nextDayOf(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
 }
 function fmtDate(s) {
   if (!s) return '?';
@@ -132,9 +141,11 @@ async function startMorningFlow(uid) {
 }
 
 // ─── Вечерний поток (итог дня) ───────────────────────────────────────────────
-async function startEveningFlow(uid) {
-  setState(uid, 'evening_done', {});
-  await send(uid, `🌙 Время подвести итог дня!\n\n*Что сделал сегодня?*\n\n${HINT.done}`);
+async function startEveningFlow(uid, targetDate) {
+  const date = targetDate || todayStr();
+  const label = date === todayStr() ? 'сегодня' : `за ${fmtDate(date)}`;
+  setState(uid, 'evening_done', { targetDate: date });
+  await send(uid, `🌙 Подводим итог — *${label}*!\n\n*Что сделал?*\n\n${HINT.done}`);
 }
 
 // ─── Вечерний разбор незакрытых задач ────────────────────────────────────────
@@ -345,6 +356,19 @@ bot.on('text', async (ctx) => {
 
   const { step, data } = getState(uid);
 
+  // ── Ожидание даты для /итог ────────────────────────────────────────────────
+  if (step === 'awaiting_itog_date') {
+    const match = text.match(/^(\d{1,2})\.(\d{1,2})$/);
+    if (!match) {
+      await ctx.reply('Не понял формат. Напиши дату как ДД.ММ, например 14.03');
+      return;
+    }
+    const year = new Date().getFullYear();
+    const date = `${year}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
+    setState(uid, 'idle');
+    return startEveningFlow(uid, date);
+  }
+
   // ── Ожидание произвольной даты переноса ────────────────────────────────────
   if (step === 'awaiting_move_date') {
     const match = text.match(/^(\d{1,2})\.(\d{1,2})$/);
@@ -396,7 +420,9 @@ bot.on('text', async (ctx) => {
   }
 
   if (step === 'evening_plans') {
-    const { done, not_done, mood_score } = data;
+    const { done, not_done, mood_score, targetDate } = data;
+    const entryDate = targetDate || todayStr();
+    const nextDay = nextDayOf(entryDate);
 
     // Сохраняем запись дня
     db.prepare(`
@@ -404,27 +430,27 @@ bot.on('text', async (ctx) => {
       VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(user_id, date) DO UPDATE SET
         done = excluded.done, not_done = excluded.not_done, mood_score = excluded.mood_score
-    `).run(uid, todayStr(), done, not_done, mood_score);
+    `).run(uid, entryDate, done, not_done, mood_score);
 
     // Парсим задачи
     const tasks = parseTasks(text);
 
-    // Удаляем старые pending на завтра
+    // Удаляем старые pending на следующий день
     db.prepare(`DELETE FROM plans WHERE user_id = ? AND plan_date = ? AND status = 'pending'`)
-      .run(uid, tomorrowStr());
+      .run(uid, nextDay);
 
     // Вставляем новые
     const insertPlan = db.prepare(`INSERT INTO plans (user_id, plan_date, task_text) VALUES (?, ?, ?)`);
-    tasks.forEach(t => insertPlan.run(uid, tomorrowStr(), t));
+    tasks.forEach(t => insertPlan.run(uid, nextDay, t));
 
     setState(uid, 'idle');
 
     // Строим чеклист
     const plans = db.prepare(
       `SELECT * FROM plans WHERE user_id = ? AND plan_date = ? ORDER BY id`
-    ).all(uid, tomorrowStr());
+    ).all(uid, nextDay);
 
-    const { text: clText, keyboard } = buildChecklist(plans);
+    const { text: clText, keyboard } = buildChecklist(plans, `Планы на ${fmtDate(nextDay)}`);
     const msg = await bot.telegram.sendMessage(uid, clText, {
       parse_mode: 'Markdown',
       ...keyboard
@@ -435,14 +461,15 @@ bot.on('text', async (ctx) => {
       INSERT INTO checklists (user_id, plan_date, msg_id, chat_id)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(user_id, plan_date) DO UPDATE SET msg_id = excluded.msg_id, chat_id = excluded.chat_id
-    `).run(uid, tomorrowStr(), msg.message_id, msg.chat.id);
+    `).run(uid, nextDay, msg.message_id, msg.chat.id);
 
     // Проактивный AI-совет
     setTimeout(async () => {
       try {
-        const entry = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date = ?').get(uid, todayStr());
+        const entry = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date = ?').get(uid, entryDate);
+        const user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
         if (entry) {
-          const tip = await dailyTip(entry);
+          const tip = await dailyTip(entry, user);
           await send(uid, `💡 *Совет на завтра:*\n\n${tip}`);
         }
       } catch (e) { console.error('dailyTip:', e.message); }
@@ -458,17 +485,121 @@ bot.on('text', async (ctx) => {
 bot.start(async (ctx) => {
   const uid = ctx.from.id;
   const name = ctx.from.first_name || 'друг';
-  if (!db.prepare('SELECT user_id FROM users WHERE user_id = ?').get(uid)) {
+  const existing = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
+  if (!existing) {
     db.prepare('INSERT INTO users (user_id, name) VALUES (?, ?)').run(uid, name);
   }
-  await send(ctx.chat.id,
-    `Привет, ${name}! 👋\n\n` +
-    `Я бот-дневник с чеклистами и AI-анализом.\n\n` +
-    `☀️ *Утро:* 09:00 — чекин по планам\n` +
-    `🌙 *Вечер:* 21:00 — итог дня + планы на завтра\n\n` +
-    `/время — настроить время напоминаний\n` +
+
+  const user = existing || db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
+
+  // Если профиль не заполнен — запускаем анкету
+  if (!user.gender) {
+    await send(ctx.chat.id,
+      `Привет, ${name}! 👋 Я бот-дневник с AI-советами по work-life балансу.\n\n` +
+      `Чтобы советы были точнее — пара вопросов. *Ты:*`,
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback('👨 Мужчина', 'reg:gender:male'),
+          Markup.button.callback('👩 Женщина', 'reg:gender:female'),
+        ]
+      ])
+    );
+    return;
+  }
+
+  // Профиль уже есть — просто приветствие
+  await sendWelcome(ctx.chat.id);
+});
+
+async function sendWelcome(chatId) {
+  await send(chatId,
+    `☀️ *Утро:* чекин по планам\n` +
+    `🌙 *Вечер:* итог дня + планы на завтра\n\n` +
+    `/итог — записать день\n` +
+    `/время — настроить напоминания\n` +
+    `/профиль — посмотреть и изменить профиль\n` +
     `/помощь — все команды`
   );
+}
+
+// ─── Регистрация: выбор пола ─────────────────────────────────────────────────
+bot.action(/^reg:gender:(male|female)$/, async (ctx) => {
+  const gender = ctx.match[1];
+  db.prepare('UPDATE users SET gender = ? WHERE user_id = ?').run(gender, ctx.from.id);
+  await ctx.editMessageText(
+    `Отлично! Теперь семейное положение:`,
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback('🧍 Один/Одна', 'reg:family:single'),
+        Markup.button.callback('❤️ В отношениях', 'reg:family:partner'),
+      ],
+      [
+        Markup.button.callback('💍 В браке', 'reg:family:married'),
+        Markup.button.callback('👨‍👩‍👧 Есть дети', 'reg:family:children'),
+      ]
+    ])
+  );
+  await ctx.answerCbQuery();
+});
+
+// ─── Регистрация: выбор семейного положения ───────────────────────────────────
+bot.action(/^reg:family:(single|partner|married|children)$/, async (ctx) => {
+  const family = ctx.match[1];
+  db.prepare('UPDATE users SET family_status = ? WHERE user_id = ?').run(family, ctx.from.id);
+  await ctx.editMessageText(`✅ Готово! Профиль сохранён.`);
+  await ctx.answerCbQuery('Сохранено!');
+  await sendWelcome(ctx.from.id);
+});
+
+// ─── /профиль ─────────────────────────────────────────────────────────────────
+bot.command('профиль', async (ctx) => {
+  const user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(ctx.from.id);
+  if (!user) return ctx.reply('Сначала напиши /start');
+
+  const genderLabel = { male: '👨 Мужчина', female: '👩 Женщина' }[user.gender] || '—';
+  const familyLabel = {
+    single: '🧍 Один/Одна', partner: '❤️ В отношениях',
+    married: '💍 В браке', children: '👨‍👩‍👧 Есть дети'
+  }[user.family_status] || '—';
+
+  await send(ctx.chat.id,
+    `👤 *Профиль*\n\n` +
+    `Пол: ${genderLabel}\n` +
+    `Семейное положение: ${familyLabel}\n\n` +
+    `_Изменить:_`,
+    Markup.inlineKeyboard([
+      [Markup.button.callback('Изменить пол', 'profile:edit:gender')],
+      [Markup.button.callback('Изменить семейное положение', 'profile:edit:family')],
+    ])
+  );
+});
+
+bot.action('profile:edit:gender', async (ctx) => {
+  await ctx.editMessageReplyMarkup(
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback('👨 Мужчина', 'reg:gender:male'),
+        Markup.button.callback('👩 Женщина', 'reg:gender:female'),
+      ]
+    ]).reply_markup
+  );
+  await ctx.answerCbQuery();
+});
+
+bot.action('profile:edit:family', async (ctx) => {
+  await ctx.editMessageReplyMarkup(
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback('🧍 Один/Одна', 'reg:family:single'),
+        Markup.button.callback('❤️ В отношениях', 'reg:family:partner'),
+      ],
+      [
+        Markup.button.callback('💍 В браке', 'reg:family:married'),
+        Markup.button.callback('👨‍👩‍👧 Есть дети', 'reg:family:children'),
+      ]
+    ]).reply_markup
+  );
+  await ctx.answerCbQuery();
 });
 
 // ─── /помощь ──────────────────────────────────────────────────────────────────
@@ -513,8 +644,45 @@ bot.command('дневник', async (ctx) => {
   });
 });
 
-// ─── Ручной запуск ────────────────────────────────────────────────────────────
-bot.command('итог', (ctx) => startEveningFlow(ctx.from.id));
+// ─── /итог — с выбором даты ───────────────────────────────────────────────────
+bot.command('итог', async (ctx) => {
+  const arg = ctx.message.text.split(' ').slice(1).join(' ').trim();
+
+  // /итог вчера
+  if (arg === 'вчера') return startEveningFlow(ctx.from.id, yesterdayStr());
+
+  // /итог 14.03
+  const matchDate = arg.match(/^(\d{1,2})\.(\d{2})$/);
+  if (matchDate) {
+    const year = new Date().getFullYear();
+    const date = `${year}-${matchDate[2].padStart(2,'0')}-${matchDate[1].padStart(2,'0')}`;
+    return startEveningFlow(ctx.from.id, date);
+  }
+
+  // Без аргумента — показываем выбор
+  await send(ctx.chat.id, `За какой день подводим итог?`,
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback(`Сегодня (${fmtDate(todayStr())})`, `itog_date:${todayStr()}`),
+        Markup.button.callback(`Вчера (${fmtDate(yesterdayStr())})`, `itog_date:${yesterdayStr()}`),
+      ],
+      [Markup.button.callback('📅 Другая дата', 'itog_date:custom')],
+    ])
+  );
+});
+
+bot.action(/^itog_date:(.+)$/, async (ctx) => {
+  const val = ctx.match[1];
+  await ctx.answerCbQuery();
+  await ctx.deleteMessage().catch(() => {});
+
+  if (val === 'custom') {
+    setState(ctx.from.id, 'awaiting_itog_date', {});
+    await send(ctx.from.id, `Напиши дату в формате ДД.ММ (например: 14.03)`);
+  } else {
+    startEveningFlow(ctx.from.id, val);
+  }
+});
 
 // ─── Просмотр записей ─────────────────────────────────────────────────────────
 bot.command('сегодня', async (ctx) => {
@@ -592,9 +760,10 @@ bot.command('анализ', async (ctx) => {
   const entries = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date >= ? ORDER BY date').all(uid, fromStr);
   if (entries.length < 3) return ctx.reply(`Нужно хотя бы 3 записи. Сейчас: ${entries.length}`);
   const plans = db.prepare('SELECT * FROM plans WHERE user_id = ? AND plan_date >= ? ORDER BY plan_date').all(uid, fromStr);
+  const userProfile = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
   await ctx.reply(`🔍 Анализирую ${days} дней...`);
   try {
-    const result = await analyzeGeneral(entries, plans, days);
+    const result = await analyzeGeneral(entries, plans, days, userProfile);
     await send(uid, `📊 *Анализ за ${days} дней:*\n\n${result}`);
   } catch (e) { await ctx.reply('Ошибка при анализе. Попробуй позже.'); }
 });
@@ -606,9 +775,10 @@ bot.command('психо', async (ctx) => {
   const entries = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date >= ? ORDER BY date').all(uid, fromStr);
   if (entries.length < 5) return ctx.reply(`Нужно хотя бы 5 записей. Сейчас: ${entries.length}`);
   const plans = db.prepare('SELECT * FROM plans WHERE user_id = ? AND plan_date >= ? ORDER BY plan_date').all(uid, fromStr);
+  const userProfilePsych = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
   await ctx.reply('🧠 Провожу психологический анализ...');
   try {
-    const result = await analyzePsych(entries, plans, 30);
+    const result = await analyzePsych(entries, plans, 30, userProfilePsych);
     const chunks = result.match(/[\s\S]{1,3800}/g) || [result];
     for (let i = 0; i < chunks.length; i++) {
       await send(uid, i === 0 ? `🧠 *Психологический анализ:*\n\n${chunks[i]}` : chunks[i]);
@@ -623,9 +793,10 @@ bot.command('баланс', async (ctx) => {
   const entries = db.prepare('SELECT * FROM entries WHERE user_id = ? AND date >= ? ORDER BY date').all(uid, fromStr);
   if (entries.length < 5) return ctx.reply(`Нужно хотя бы 5 записей. Сейчас: ${entries.length}`);
   const plans = db.prepare('SELECT * FROM plans WHERE user_id = ? AND plan_date >= ? ORDER BY plan_date').all(uid, fromStr);
+  const userProfileBal = db.prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
   await ctx.reply('⚖️ Анализирую work-life баланс...');
   try {
-    const result = await analyzeBalance(entries, plans);
+    const result = await analyzeBalance(entries, plans, userProfileBal);
     const chunks = result.match(/[\s\S]{1,3800}/g) || [result];
     for (let i = 0; i < chunks.length; i++) {
       await send(uid, i === 0 ? `⚖️ *Work-life баланс:*\n\n${chunks[i]}` : chunks[i]);
@@ -693,6 +864,18 @@ cron.schedule('* * * * *', async () => {
 });
 
 // ─── Запуск ───────────────────────────────────────────────────────────────────
-bot.launch().then(() => console.log('✅ Бот запущен'));
+bot.launch()
+  .then(() => console.log('✅ Бот запущен'))
+  .catch(e => console.error('❌ Ошибка запуска бота:', e.message));
+
+// Не даём процессу падать от ошибок бота — Express продолжает работать
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason instanceof Error ? reason.message : reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err.message);
+  // Не выходим — Express и cron продолжают работать
+});
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

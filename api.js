@@ -93,25 +93,47 @@ app.patch('/api/plans/:id/toggle', auth, (req, res) => {
   res.json({ id: plan.id, status: newStatus });
 });
 
+// ─── GET /api/profile ────────────────────────────────────────────────────────
+app.get('/api/profile', auth, (req, res) => {
+  const user = db.prepare('SELECT gender, family_status FROM users WHERE user_id = ?').get(req.uid);
+  res.json(user || {});
+});
+
+// ─── PATCH /api/profile ───────────────────────────────────────────────────────
+app.patch('/api/profile', auth, (req, res) => {
+  const { gender, family_status } = req.body;
+  if (gender) db.prepare('UPDATE users SET gender = ? WHERE user_id = ?').run(gender, req.uid);
+  if (family_status) db.prepare('UPDATE users SET family_status = ? WHERE user_id = ?').run(family_status, req.uid);
+  res.json({ ok: true });
+});
+
 // ─── POST /api/entry ─────────────────────────────────────────────────────────
 app.post('/api/entry', auth, (req, res) => {
-  const { done, not_done, mood_score, plans } = req.body;
+  const { done, not_done, mood_score, plans, date } = req.body;
   if (!done?.trim() || !mood_score) return res.status(400).json({ error: 'done и mood_score обязательны' });
+
+  // Дата из тела или сегодня; не позволяем будущие даты
+  const entryDate = date && date <= todayStr() ? date : todayStr();
+  const nextDay = (() => {
+    const d = new Date(entryDate + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  })();
 
   db.prepare(`
     INSERT INTO entries (user_id, date, done, not_done, mood_score)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(user_id, date) DO UPDATE SET
       done = excluded.done, not_done = excluded.not_done, mood_score = excluded.mood_score
-  `).run(req.uid, todayStr(), done.trim(), not_done?.trim() || null, mood_score);
+  `).run(req.uid, entryDate, done.trim(), not_done?.trim() || null, mood_score);
 
   if (Array.isArray(plans) && plans.length) {
-    db.prepare(`DELETE FROM plans WHERE user_id = ? AND plan_date = ? AND status = 'pending'`).run(req.uid, tomorrowStr());
+    db.prepare(`DELETE FROM plans WHERE user_id = ? AND plan_date = ? AND status = 'pending'`).run(req.uid, nextDay);
     const insert = db.prepare(`INSERT INTO plans (user_id, plan_date, task_text) VALUES (?, ?, ?)`);
-    plans.filter(t => t?.trim()).forEach(t => insert.run(req.uid, tomorrowStr(), t.trim()));
+    plans.filter(t => t?.trim()).forEach(t => insert.run(req.uid, nextDay, t.trim()));
   }
 
-  res.json({ ok: true });
+  res.json({ ok: true, entryDate, nextDay });
 });
 
 const PORT = process.env.PORT || 3000;

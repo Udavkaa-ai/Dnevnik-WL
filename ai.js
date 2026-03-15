@@ -58,6 +58,20 @@ const ACTIVITY_LIBRARY = `
 - PERMA (Seligman): Positive emotions, Engagement, Relationships, Meaning, Achievement. Что из пяти отсутствует в записях?
 `;
 
+// ─── Профиль пользователя для промптов ───────────────────────────────────────
+function formatUserProfile(user) {
+  if (!user) return '';
+  const gender = user.gender === 'male' ? 'Мужчина' : user.gender === 'female' ? 'Женщина' : null;
+  const family = {
+    single: 'Один/Одна',
+    partner: 'В отношениях',
+    married: 'В браке, детей нет',
+    children: 'Семья с детьми',
+  }[user.family_status] || null;
+  const parts = [gender, family].filter(Boolean);
+  return parts.length ? `\nПрофиль пользователя: ${parts.join(', ')}.` : '';
+}
+
 // ─── Форматирование для промптов ─────────────────────────────────────────────
 function formatEntries(entries) {
   return entries.map(e =>
@@ -74,14 +88,14 @@ function formatPlans(plans) {
 }
 
 // ─── Общий анализ за период ──────────────────────────────────────────────────
-async function analyzeGeneral(entries, plans, days) {
+async function analyzeGeneral(entries, plans, days, user) {
   const resp = await client.chat.completions.create({
     model: MODEL_HEAVY,
     max_tokens: 1200,
     messages: [
       {
         role: 'system',
-        content: 'Ты аналитик личного дневника. Анализируй конкретно, только по данным. Пиши по-русски, кратко, без воды и общих фраз.'
+        content: `Ты аналитик личного дневника. Анализируй конкретно, только по данным. Пиши по-русски, кратко, без воды и общих фраз.${formatUserProfile(user)}`
       },
       {
         role: 'user',
@@ -101,7 +115,7 @@ async function analyzeGeneral(entries, plans, days) {
 }
 
 // ─── Психологический анализ ──────────────────────────────────────────────────
-async function analyzePsych(entries, plans, days) {
+async function analyzePsych(entries, plans, days, user) {
   const resp = await client.chat.completions.create({
     model: MODEL_HEAVY,
     max_tokens: 1800,
@@ -111,7 +125,7 @@ async function analyzePsych(entries, plans, days) {
         content:
           `Ты психолог-аналитик, работающий с дневниковыми данными. ` +
           `Пиши по-русски, конкретно и честно. Не давай общих советов — только то что видно в данных. ` +
-          `Используй принципы SDT, Recovery Activities, Flow, PERMA — но простым языком без терминов.`
+          `Используй принципы SDT, Recovery Activities, Flow, PERMA — но простым языком без терминов.${formatUserProfile(user)}`
       },
       {
         role: 'user',
@@ -138,7 +152,7 @@ async function analyzePsych(entries, plans, days) {
 }
 
 // ─── Work-life баланс с проактивным планом ───────────────────────────────────
-async function analyzeBalance(entries, plans) {
+async function analyzeBalance(entries, plans, user) {
   const resp = await client.chat.completions.create({
     model: MODEL_HEAVY,
     max_tokens: 2000,
@@ -148,7 +162,7 @@ async function analyzeBalance(entries, plans) {
         content:
           `Ты коуч по work-life балансу с базой в доказательной психологии. ` +
           `Пиши по-русски. Советы — конкретные, применимые сразу. ` +
-          `Никаких "найди время для себя". Только конкретные активности и механизмы изменений.`
+          `Никаких "найди время для себя". Только конкретные активности и механизмы изменений.${formatUserProfile(user)}`
       },
       {
         role: 'user',
@@ -174,7 +188,7 @@ async function analyzeBalance(entries, plans) {
 }
 
 // ─── Ежедневный проактивный совет после вечернего итога ──────────────────────
-async function dailyTip(entry) {
+async function dailyTip(entry, user) {
   const resp = await client.chat.completions.create({
     model: MODEL_LIGHT,
     max_tokens: 350,
@@ -186,7 +200,7 @@ async function dailyTip(entry) {
           `Пиши по-русски, тепло, 2-3 предложения. ` +
           `Совет — конкретное действие из библиотеки: прочитать книгу, сходить в кино, приготовить новое блюдо, ` +
           `позаниматься спортом, порисовать, сыграть в настолку, прогуляться без телефона и т.п. ` +
-          `Выбирай то что подходит под конкретную запись.`
+          `Выбирай то что подходит под конкретную запись.${formatUserProfile(user)}`
       },
       {
         role: 'user',
