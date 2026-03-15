@@ -505,8 +505,7 @@ async function requestAnalysis(type) {
     tg.HapticFeedback?.notificationOccurred('success');
 
   } catch (e) {
-    let msg = 'Ошибка. Попробуй позже.';
-    try { msg = JSON.parse(e.message)?.error || msg; } catch (_) {}
+    const msg = e.message || 'Ошибка. Попробуй позже.';
 
     const needMore = document.getElementById('ai-need-more');
     document.getElementById('ai-need-more-text').textContent = msg;

@@ -266,7 +266,7 @@ app.post('/api/analyze', auth, async (req, res) => {
   const { type } = req.body;
   const uid = req.uid;
 
-  const LIMITS = { general: { days: 7, min: 2 }, psych: { days: 30, min: 5 }, balance: { days: 30, min: 5 } };
+  const LIMITS = { general: { days: 7, min: 2 }, psych: { days: 30, min: 5 }, balance: { days: 30, min: 14 } };
   if (!LIMITS[type]) return res.status(400).json({ error: 'Неизвестный тип анализа' });
 
   const { days, min } = LIMITS[type];
