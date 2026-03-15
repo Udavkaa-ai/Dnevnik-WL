@@ -107,23 +107,35 @@ async function loadToday() {
     const wrap = document.getElementById('today-checklist');
     const empty = document.getElementById('today-empty');
     const title = document.getElementById('plans-section-title');
-
-    if (!plans.length) {
-      wrap.innerHTML = '';
-      title.textContent = '';
-      empty.classList.remove('hidden');
-    } else {
-      empty.classList.add('hidden');
-      title.textContent = 'Планы на сегодня';
-      wrap.innerHTML = plans.map(p => `
-        <div class="checklist-item" onclick="togglePlan(${p.id}, this)" data-status="${p.status}">
-          <span class="check-icon">${p.status === 'done' ? '✅' : '☐'}</span>
-          <span class="check-text${p.status === 'done' ? ' done' : ''}">${escHtml(p.task_text)}</span>
-        </div>
-      `).join('');
-    }
+    renderChecklist(plans, wrap, empty, title);
   } catch (e) {
     console.error('loadToday:', e);
+  }
+}
+
+function renderChecklist(plans, wrap, empty, title) {
+  const pending = plans.filter(p => p.status !== 'moved' && p.status !== 'cancelled');
+  if (!pending.length) {
+    wrap.innerHTML = '';
+    if (title) title.textContent = '';
+    empty.classList.remove('hidden');
+  } else {
+    empty.classList.add('hidden');
+    if (title) title.textContent = 'Планы на сегодня';
+    wrap.innerHTML = pending.map(p => `
+      <div class="checklist-item" data-status="${p.status}" data-id="${p.id}">
+        <span class="check-icon" onclick="togglePlan(${p.id}, this.closest('.checklist-item'))">
+          ${p.status === 'done' ? '✅' : '☐'}
+        </span>
+        <span class="check-text${p.status === 'done' ? ' done' : ''}"
+              onclick="togglePlan(${p.id}, this.closest('.checklist-item'))">
+          ${escHtml(p.task_text)}
+        </span>
+        ${p.status !== 'done'
+          ? `<button class="task-move-btn" onclick="showMoveTask(${p.id}, '${escHtml(p.task_text).replace(/'/g,"\\'")}')">→</button>`
+          : ''}
+      </div>
+    `).join('');
   }
 }
 
@@ -133,9 +145,74 @@ async function togglePlan(id, el) {
     el.dataset.status = status;
     el.querySelector('.check-icon').textContent = status === 'done' ? '✅' : '☐';
     el.querySelector('.check-text').classList.toggle('done', status === 'done');
+    // Скрываем кнопку переноса если задача выполнена
+    const moveBtn = el.querySelector('.task-move-btn');
+    if (moveBtn) moveBtn.style.display = status === 'done' ? 'none' : '';
     tg.HapticFeedback?.impactOccurred('light');
   } catch (e) {
     console.error('togglePlan:', e);
+  }
+}
+
+// ─── Добавить задачу на сегодня ───────────────────────────────────────────────
+async function addTodayTask() {
+  const input = document.getElementById('today-task-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.disabled = true;
+  try {
+    await api('POST', '/api/plans', { task_text: text, plan_date: todayStr() });
+    input.value = '';
+    tg.HapticFeedback?.impactOccurred('light');
+    await loadToday();
+  } catch (e) {
+    alert('Ошибка: ' + e.message);
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'today-task-input') {
+    e.preventDefault();
+    addTodayTask();
+  }
+});
+
+// ─── Перенос задачи с причиной ────────────────────────────────────────────────
+let _movingPlanId = null;
+
+function showMoveTask(id, taskName) {
+  _movingPlanId = id;
+  document.getElementById('move-task-name').textContent = taskName;
+  document.getElementById('move-reason').value = '';
+  document.getElementById('move-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('move-reason').focus(), 150);
+}
+
+function closeMoveModal() {
+  document.getElementById('move-modal').classList.add('hidden');
+  _movingPlanId = null;
+}
+
+async function confirmMove(daysOffset) {
+  const reason = document.getElementById('move-reason').value.trim();
+  if (!reason) {
+    tg.HapticFeedback?.notificationOccurred('error');
+    document.getElementById('move-reason').focus();
+    return;
+  }
+  const d = new Date();
+  d.setDate(d.getDate() + daysOffset);
+  const moveTo = d.toISOString().split('T')[0];
+  try {
+    await api('PATCH', `/api/plans/${_movingPlanId}/move`, { move_to: moveTo, reason });
+    closeMoveModal();
+    tg.HapticFeedback?.notificationOccurred('success');
+    await loadToday();
+  } catch (e) {
+    alert('Ошибка: ' + e.message);
   }
 }
 
@@ -191,7 +268,23 @@ async function selectEntryDate(type) {
   }
   // Предзаполняем из существующей записи
   await prefillFromExisting(selectedEntryDate);
+  updateStep4Title(selectedEntryDate);
   showStep(1);
+}
+
+function updateStep4Title(entryDate) {
+  const d = new Date(entryDate + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  const nextDay = d.toISOString().split('T')[0];
+  const isToday = nextDay === todayStr();
+  const label = isToday ? 'Планы на сегодня' : `Планы на ${fmtDateLong(nextDay)}`;
+  const hint = isToday
+    ? 'Эти задачи появятся в "Сделано" прямо сейчас'
+    : `Появятся в "Сделано" ${fmtDateLong(nextDay)}`;
+  const title = document.getElementById('step4-title');
+  const hintEl = document.getElementById('step4-hint');
+  if (title) title.textContent = label;
+  if (hintEl) hintEl.textContent = hint;
 }
 
 async function prefillFromExisting(date) {
@@ -285,7 +378,7 @@ async function submitEntry() {
   btn.textContent = 'Сохраняю...';
 
   try {
-    await api('POST', '/api/entry', {
+    const { nextDay } = await api('POST', '/api/entry', {
       done,
       not_done: notDone,
       mood_score: selectedMood,
@@ -293,13 +386,28 @@ async function submitEntry() {
       date: selectedEntryDate || todayStr(),
     });
     tg.HapticFeedback?.notificationOccurred('success');
+
+    // Показываем экран успеха и СБРАСЫВАЕМ кнопку
     showStep('success');
+    btn.disabled = false;
+    btn.textContent = 'Сохранить ✓';
+
+    // Обновляем заголовок успеха чтобы показать куда ушли планы
+    const successTitle = document.querySelector('#step-success .step-hint');
+    if (successTitle && taskList.length && nextDay) {
+      successTitle.textContent = `Планы на ${fmtDateLong(nextDay)} сохранены`;
+    }
+
+    // Сбрасываем форму
+    selectedEntryDate = null;
+    taskList = [];
+
   } catch (e) {
     console.error('submitEntry:', e);
     tg.HapticFeedback?.notificationOccurred('error');
     btn.disabled = false;
     btn.textContent = 'Сохранить ✓';
-    alert('Ошибка при сохранении. Попробуй ещё раз.');
+    alert(`Ошибка: ${e.message}`);
   }
 }
 

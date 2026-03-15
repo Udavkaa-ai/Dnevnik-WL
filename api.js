@@ -119,6 +119,30 @@ app.get('/api/mood', auth, (req, res) => {
   res.json({ mood });
 });
 
+// ─── POST /api/plans — добавить задачу на произвольную дату ──────────────────
+app.post('/api/plans', auth, (req, res) => {
+  const { task_text, plan_date } = req.body;
+  if (!task_text?.trim()) return res.status(400).json({ error: 'task_text обязателен' });
+  const date = plan_date || todayStr();
+  const r = db.prepare('INSERT INTO plans (user_id, plan_date, task_text) VALUES (?, ?, ?)')
+    .run(req.uid, date, task_text.trim());
+  res.json({ id: r.lastInsertRowid, plan_date: date, task_text: task_text.trim(), status: 'pending' });
+});
+
+// ─── PATCH /api/plans/:id/move — перенести задачу с причиной ─────────────────
+app.patch('/api/plans/:id/move', auth, (req, res) => {
+  const { move_to, reason } = req.body;
+  if (!move_to) return res.status(400).json({ error: 'move_to обязателен' });
+  const plan = db.prepare('SELECT * FROM plans WHERE id = ? AND user_id = ?').get(req.params.id, req.uid);
+  if (!plan) return res.status(404).json({ error: 'Not found' });
+  db.prepare('UPDATE plans SET status = ?, moved_to = ?, reason = ? WHERE id = ?')
+    .run('moved', move_to, reason?.trim() || null, plan.id);
+  const r = db.prepare('INSERT INTO plans (user_id, plan_date, task_text) VALUES (?, ?, ?)')
+    .run(req.uid, move_to, plan.task_text);
+  console.log(`[move] plan ${plan.id} → ${move_to}, reason="${reason}"`);
+  res.json({ ok: true, new_id: r.lastInsertRowid });
+});
+
 // ─── PATCH /api/plans/:id/toggle ─────────────────────────────────────────────
 app.patch('/api/plans/:id/toggle', auth, (req, res) => {
   const plan = db.prepare('SELECT * FROM plans WHERE id = ? AND user_id = ?').get(req.params.id, req.uid);

@@ -83,10 +83,106 @@ body {
   transition: opacity 0.1s;
 }
 .checklist-item:last-child { border-bottom: none; }
-.checklist-item:active { opacity: 0.6; }
-.check-icon { font-size: 20px; width: 24px; text-align: center; flex-shrink: 0; }
-.check-text { flex: 1; font-size: 15px; }
+.check-icon { font-size: 20px; width: 24px; text-align: center; flex-shrink: 0; cursor: pointer; }
+.check-text { flex: 1; font-size: 15px; cursor: pointer; }
 .check-text.done { text-decoration: line-through; color: var(--hint); }
+.task-move-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--hint);
+  font-size: 18px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.task-move-btn:active { background: var(--secondary-bg); color: var(--text); }
+
+/* ── Добавить задачу на сегодня ── */
+.add-today-wrap {
+  margin: 8px 12px 0;
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 2px 4px;
+}
+.add-today-row { display: flex; align-items: center; }
+.add-today-input {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 14px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text);
+  outline: none;
+}
+.add-today-input::placeholder { color: var(--hint); }
+.add-today-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--btn);
+  color: var(--btn-text);
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.add-today-btn:active { opacity: 0.8; }
+
+/* ── Модал переноса ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+.modal-overlay.hidden { display: none; }
+.modal-sheet {
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  width: 100%;
+}
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.modal-task-name { font-size: 14px; color: var(--hint); margin-bottom: 16px; }
+.modal-label { font-size: 12px; color: var(--hint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+.modal-input {
+  width: 100%;
+  border: 1.5px solid var(--secondary-bg);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--secondary-bg);
+  outline: none;
+  box-sizing: border-box;
+}
+.modal-input:focus { border-color: var(--btn); background: var(--bg); }
+.modal-date-row { display: flex; gap: 8px; }
+.modal-date-btn {
+  flex: 1;
+  background: var(--btn);
+  color: var(--btn-text);
+  border: none;
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.modal-date-btn:active { opacity: 0.8; }
 
 /* ── Empty ── */
 .empty { text-align: center; padding: 56px 16px; }

@@ -26,13 +26,20 @@
     <div class="section-title" id="plans-section-title"></div>
     <div id="today-checklist" class="checklist-wrap"></div>
 
+    <!-- Добавить задачу на сегодня -->
+    <div class="add-today-wrap" id="add-today-wrap">
+      <div class="add-today-row">
+        <input type="text" id="today-task-input" class="add-today-input" placeholder="Добавить задачу на сегодня...">
+        <button class="add-today-btn" onclick="addTodayTask()">+</button>
+      </div>
+    </div>
+
     <div id="today-empty" class="empty hidden">
       <div class="empty-icon">📋</div>
       <div class="empty-text">Планов на сегодня нет</div>
-      <div class="empty-hint">Заполни вечерний итог</div>
     </div>
 
-    <!-- Тизер AI — показывается если есть достаточно записей -->
+    <!-- Тизер AI -->
     <div id="ai-teaser" class="ai-teaser hidden" onclick="showScreen('ai')">
       <span class="ai-teaser-icon">✨</span>
       <div class="ai-teaser-body">
@@ -40,6 +47,22 @@
         <div class="ai-teaser-sub">Паттерны, советы и план — нажми чтобы посмотреть</div>
       </div>
       <span class="ai-teaser-arrow">›</span>
+    </div>
+  </div>
+
+  <!-- ── Модал переноса задачи ── -->
+  <div id="move-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeMoveModal()">
+    <div class="modal-sheet">
+      <div class="modal-title">Перенести задачу</div>
+      <div class="modal-task-name" id="move-task-name"></div>
+      <label class="modal-label">Почему откладываем?</label>
+      <input type="text" id="move-reason" class="modal-input" placeholder="Не успел, изменились приоритеты...">
+      <label class="modal-label" style="margin-top:12px">На когда?</label>
+      <div class="modal-date-row">
+        <button class="modal-date-btn" onclick="confirmMove(1)">Завтра</button>
+        <button class="modal-date-btn" onclick="confirmMove(2)">Послезавтра</button>
+      </div>
+      <button class="btn-ghost" onclick="closeMoveModal()" style="margin-top:8px">Отмена</button>
     </div>
   </div>
 
@@ -132,8 +155,8 @@
       <div class="step-dots">
         <span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot active"></span>
       </div>
-      <div class="step-title">Планы на завтра</div>
-      <div class="step-hint">Enter — добавить задачу</div>
+      <div class="step-title" id="step4-title">Планы на завтра</div>
+      <div class="step-hint" id="step4-hint">Enter — добавить задачу</div>
       <div id="plans-input-list"></div>
       <div class="add-task-row">
         <input type="text" id="task-input" class="task-input" placeholder="Добавить задачу...">
