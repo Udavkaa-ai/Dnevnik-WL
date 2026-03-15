@@ -92,17 +92,6 @@ async function loadToday() {
     if (entry_count >= 3) teaser.classList.remove('hidden');
     else teaser.classList.add('hidden');
 
-    // Карточка итога дня
-    const card = document.getElementById('today-entry-card');
-    if (entry) {
-      document.getElementById('today-entry-done').textContent = entry.done;
-      document.getElementById('today-entry-mood').textContent =
-        entry.mood_score ? `${moodEmoji(entry.mood_score)} ${entry.mood_score}/10` : '';
-      card.classList.remove('hidden');
-    } else {
-      card.classList.add('hidden');
-    }
-
     // Чеклист
     const wrap = document.getElementById('today-checklist');
     const empty = document.getElementById('today-empty');
@@ -132,7 +121,7 @@ function renderChecklist(plans, wrap, empty, title) {
           ${escHtml(p.task_text)}
         </span>
         ${p.status !== 'done'
-          ? `<button class="task-move-btn" onclick="showMoveTask(${p.id}, '${escHtml(p.task_text).replace(/'/g,"\\'")}')">→</button>`
+          ? `<button class="task-move-btn" data-id="${p.id}" data-name="${escHtml(p.task_text)}" onclick="showMoveTask(+this.dataset.id, this.dataset.name)">→</button>`
           : ''}
       </div>
     `).join('');
@@ -582,6 +571,11 @@ async function loadFriends() {
     }).join('');
   } catch (e) {
     console.error('loadFriends:', e);
+    const errEl = document.getElementById('friends-error');
+    if (errEl) {
+      errEl.textContent = `Ошибка загрузки: ${e.message}`;
+      errEl.classList.remove('hidden');
+    }
   }
 }
 
