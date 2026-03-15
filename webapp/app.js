@@ -44,7 +44,10 @@ function fmtDateShort(s) {
   const [, m, d] = s.split('-');
   return `${parseInt(d)} ${MONTHS_SHORT[parseInt(m) - 1]}`;
 }
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function todayStr() { return localDateStr(new Date()); }
 
 function moodEmoji(score) {
   if (score >= 9) return '🔥';
@@ -194,7 +197,7 @@ async function confirmMove(daysOffset) {
   }
   const d = new Date();
   d.setDate(d.getDate() + daysOffset);
-  const moveTo = d.toISOString().split('T')[0];
+  const moveTo = localDateStr(d);
   try {
     await api('PATCH', `/api/plans/${_movingPlanId}/move`, { move_to: moveTo, reason });
     closeMoveModal();
@@ -247,7 +250,7 @@ async function selectEntryDate(type) {
   } else if (type === 'yesterday') {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    selectedEntryDate = d.toISOString().split('T')[0];
+    selectedEntryDate = localDateStr(d);
     document.querySelectorAll('.date-opt-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('date-yesterday-btn').classList.add('selected');
   } else if (type === 'custom') {
@@ -264,7 +267,7 @@ async function selectEntryDate(type) {
 function updateStep4Title(entryDate) {
   const d = new Date(entryDate + 'T00:00:00');
   d.setDate(d.getDate() + 1);
-  const nextDay = d.toISOString().split('T')[0];
+  const nextDay = localDateStr(d);
   const isToday = nextDay === todayStr();
   const label = isToday ? 'Планы на сегодня' : `Планы на ${fmtDateLong(nextDay)}`;
   const hint = isToday
