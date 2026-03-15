@@ -4,7 +4,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const MODEL_HEAVY = 'google/gemini-2.5-flash-preview-05-20';
+const MODEL_HEAVY = 'google/gemini-2.5-flash';
 const MODEL_LIGHT = 'google/gemini-2.0-flash-lite';
 
 // ─── Библиотека активностей по категориям ────────────────────────────────────
