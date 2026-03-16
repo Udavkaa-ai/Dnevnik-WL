@@ -81,7 +81,8 @@ jobs:
           npx expo export:embed \
             --platform android \
             --bundle-output android/app/src/main/assets/index.android.bundle \
-            --assets-dest android/app/src/main/res
+            --assets-dest android/app/src/main/res \
+            --dev false
           echo "Bundle size: $(du -sh android/app/src/main/assets/index.android.bundle)"
 
       - name: Build debug APK
