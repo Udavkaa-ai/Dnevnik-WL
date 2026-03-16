@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Дневник</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Сегодня ── -->
+  <div id="screen-today" class="screen">
+    <div class="page-header">
+      <div class="page-title">Сегодня</div>
+      <div class="page-subtitle" id="today-date"></div>
+    </div>
+
+    <div class="section-title" id="plans-section-title"></div>
+    <div id="today-checklist" class="checklist-wrap"></div>
+
+    <!-- Добавить задачу на сегодня -->
+    <div class="add-today-wrap" id="add-today-wrap">
+      <div class="add-today-row">
+        <input type="text" id="today-task-input" class="add-today-input" placeholder="Добавить задачу на сегодня...">
+        <button class="add-today-btn" onclick="addTodayTask()">+</button>
+      </div>
+    </div>
+
+    <div id="today-empty" class="empty hidden">
+      <div class="empty-icon">📋</div>
+      <div class="empty-text">Планов на сегодня нет</div>
+    </div>
+
+    <!-- Тизер AI -->
+    <div id="ai-teaser" class="ai-teaser hidden" onclick="showScreen('ai')">
+      <span class="ai-teaser-icon">✨</span>
+      <div class="ai-teaser-body">
+        <div class="ai-teaser-title">Готов AI-анализ твоего дневника</div>
+        <div class="ai-teaser-sub">Паттерны, советы и план — нажми чтобы посмотреть</div>
+      </div>
+      <span class="ai-teaser-arrow">›</span>
+    </div>
+  </div>
+
+  <!-- ── Модал переноса задачи ── -->
+  <div id="move-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeMoveModal()">
+    <div class="modal-sheet">
+      <div class="modal-title">Перенести задачу</div>
+      <div class="modal-task-name" id="move-task-name"></div>
+      <label class="modal-label">Почему откладываем?</label>
+      <input type="text" id="move-reason" class="modal-input" placeholder="Не успел, изменились приоритеты...">
+      <label class="modal-label" style="margin-top:12px">На когда?</label>
+      <div class="modal-date-row">
+        <button class="modal-date-btn" onclick="confirmMove(1)">Завтра</button>
+        <button class="modal-date-btn" onclick="confirmMove(2)">Послезавтра</button>
+      </div>
+      <button class="btn-ghost" onclick="closeMoveModal()" style="margin-top:8px">Отмена</button>
+    </div>
+  </div>
+
+  <!-- ── Баннер незаполненного профиля ── -->
+  <div id="profile-banner" class="profile-banner hidden">
+    <div class="profile-banner-title">👤 Расскажи о себе — советы станут точнее</div>
+    <div class="profile-banner-row">
+      <button class="profile-btn" data-field="gender" data-value="male" onclick="setProfileField('gender','male')">👨 Мужчина</button>
+      <button class="profile-btn" data-field="gender" data-value="female" onclick="setProfileField('gender','female')">👩 Женщина</button>
+    </div>
+    <div class="profile-banner-row">
+      <button class="profile-btn" data-field="family_status" data-value="single" onclick="setProfileField('family_status','single')">🧍 Один/Одна</button>
+      <button class="profile-btn" data-field="family_status" data-value="partner" onclick="setProfileField('family_status','partner')">❤️ Пара</button>
+      <button class="profile-btn" data-field="family_status" data-value="married" onclick="setProfileField('family_status','married')">💍 Брак</button>
+      <button class="profile-btn" data-field="family_status" data-value="children" onclick="setProfileField('family_status','children')">👨‍👩‍👧 Дети</button>
+    </div>
+  </div>
+
+  <!-- ── Итог ── -->
+  <div id="screen-entry" class="screen">
+
+    <div id="step-0" class="step active">
+      <div class="step-title">За какой день?</div>
+      <div class="date-options">
+        <button class="date-opt-btn" id="date-today-btn" onclick="selectEntryDate('today')">
+          <span class="date-opt-icon">☀️</span>
+          <span class="date-opt-label">Сегодня</span>
+        </button>
+        <button class="date-opt-btn" id="date-yesterday-btn" onclick="selectEntryDate('yesterday')">
+          <span class="date-opt-icon">🌙</span>
+          <span class="date-opt-label">Вчера</span>
+        </button>
+      </div>
+      <div class="date-custom-row">
+        <span class="date-custom-label">Другая дата:</span>
+        <input type="date" id="date-custom-input" class="date-input">
+        <button class="btn-sm" onclick="selectEntryDate('custom')">Выбрать</button>
+      </div>
+    </div>
+
+    <div id="step-1" class="step">
+      <div class="step-dots">
+        <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="step-title">Что сделал?</div>
+      <div class="step-hint">Работа, семья, личное — всё что было</div>
+      <textarea id="input-done" class="textarea" rows="5"
+        placeholder="Закрыл отчёт, провёл встречу&#10;Забрал ребёнка из школы&#10;Вечером читал..."></textarea>
+      <div class="step-actions">
+        <button class="btn-primary" onclick="entryNext(1)">Далее →</button>
+        <button class="btn-skip" onclick="skipToStep(2)">Пропустить</button>
+      </div>
+    </div>
+
+    <div id="step-2" class="step">
+      <div class="step-dots">
+        <span class="dot done"></span><span class="dot active"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="step-title">Что не получилось?</div>
+      <div class="step-hint">Или оставь пустым</div>
+      <textarea id="input-not-done" class="textarea" rows="3"
+        placeholder="ничего"></textarea>
+      <div class="step-actions">
+        <button class="btn-primary" onclick="entryNext(2)">Далее →</button>
+        <button class="btn-skip" onclick="skipToStep(3)">Пропустить</button>
+      </div>
+      <button class="btn-ghost" onclick="showStep(1)">← Назад</button>
+    </div>
+
+    <div id="step-3" class="step">
+      <div class="step-dots">
+        <span class="dot done"></span><span class="dot done"></span><span class="dot active"></span><span class="dot"></span>
+      </div>
+      <div class="step-title">Оцени день</div>
+      <div class="mood-picker">
+        <div class="mood-selected">
+          <span id="mood-emoji">😐</span>
+          <span id="mood-num">5</span>
+        </div>
+        <div class="mood-grid" id="mood-grid"></div>
+      </div>
+      <div class="step-actions">
+        <button class="btn-primary" onclick="entryNext(3)">Далее →</button>
+        <button class="btn-skip" onclick="skipToStep(4)">Пропустить</button>
+      </div>
+      <button class="btn-ghost" onclick="showStep(2)">← Назад</button>
+    </div>
+
+    <div id="step-4" class="step">
+      <div class="step-dots">
+        <span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot active"></span>
+      </div>
+      <div class="step-title" id="step4-title">Планы на завтра</div>
+      <div class="step-hint" id="step4-hint">Enter — добавить задачу</div>
+      <div id="plans-input-list"></div>
+      <div class="add-task-row">
+        <input type="text" id="task-input" class="task-input" placeholder="Добавить задачу...">
+        <button class="add-btn" onclick="addTask()">+</button>
+      </div>
+      <button class="btn-primary" id="submit-btn" onclick="submitEntry()">Сохранить ✓</button>
+      <button class="btn-ghost" onclick="showStep(3)">← Назад</button>
+    </div>
+
+    <div id="step-success" class="step success-step">
+      <div class="success-emoji">✅</div>
+      <div class="step-title">Итог записан!</div>
+      <div class="step-hint">Хорошего вечера</div>
+      <button class="btn-primary" onclick="showScreen('today')">На главную</button>
+    </div>
+
+  </div>
+
+  <!-- ── Инсайты (История + График) ── -->
+  <div id="screen-insights" class="screen">
+    <div class="page-header">
+      <div class="page-title">Инсайты</div>
+    </div>
+
+    <div class="section-header">📊 Настроение</div>
+    <div id="mood-chart-wrap" class="chart-wrap">
+      <div id="mood-chart" class="mood-chart"></div>
+    </div>
+    <div id="mood-empty" class="empty hidden">
+      <div class="empty-icon">😶</div>
+      <div class="empty-text">Оценок пока нет</div>
+    </div>
+
+    <div class="section-header" id="history-section-label" style="margin-top:8px">📅 Последние записи</div>
+    <div id="history-list"></div>
+    <div id="history-empty" class="empty hidden">
+      <div class="empty-icon">📖</div>
+      <div class="empty-text">Записей пока нет</div>
+    </div>
+  </div>
+
+  <!-- ── AI-анализ ── -->
+  <div id="screen-ai" class="screen">
+    <div class="page-header">
+      <div class="page-title">AI-советник</div>
+      <div class="page-subtitle">Анализ дневника и персональные инсайты</div>
+    </div>
+
+    <!-- Совет дня -->
+    <div id="ai-tip-card" class="card hidden">
+      <div class="card-label">💡 Совет дня</div>
+      <div id="ai-tip-text" class="ai-tip-text"></div>
+    </div>
+
+    <!-- Объяснение фичи -->
+    <div class="ai-intro card">
+      <div class="ai-intro-row">
+        <span class="ai-intro-icon">🤖</span>
+        <div class="ai-intro-text">AI читает твои записи, находит паттерны и предлагает конкретные активности — не абстрактные советы, а то что подходит именно тебе.</div>
+      </div>
+    </div>
+
+    <!-- Варианты анализа -->
+    <div class="ai-options-list">
+
+      <button class="ai-opt" onclick="requestAnalysis('general')" id="opt-general">
+        <div class="ai-opt-left">
+          <div class="ai-opt-icon">📊</div>
+          <div class="ai-opt-info">
+            <div class="ai-opt-title">Общий анализ</div>
+            <div class="ai-opt-desc">Главные темы, паттерны, динамика настроения</div>
+            <div class="ai-opt-meta">последние 7 дней · ~30 сек</div>
+          </div>
+        </div>
+        <div class="ai-opt-arrow" id="arr-general">›</div>
+      </button>
+
+      <button class="ai-opt" onclick="requestAnalysis('psych')" id="opt-psych">
+        <div class="ai-opt-left">
+          <div class="ai-opt-icon">🧠</div>
+          <div class="ai-opt-info">
+            <div class="ai-opt-title">Психологический анализ</div>
+            <div class="ai-opt-desc">Что заряжает, что сливает — 3 конкретные рекомендации</div>
+            <div class="ai-opt-meta">последние 30 дней · ~45 сек</div>
+          </div>
+        </div>
+        <div class="ai-opt-arrow" id="arr-psych">›</div>
+      </button>
+
+      <button class="ai-opt" onclick="requestAnalysis('balance')" id="opt-balance">
+        <div class="ai-opt-left">
+          <div class="ai-opt-icon">⚖️</div>
+          <div class="ai-opt-info">
+            <div class="ai-opt-title">Work-life баланс</div>
+            <div class="ai-opt-desc">Где перекос и конкретный план на ближайшую неделю</div>
+            <div class="ai-opt-meta">последние 30 дней · ~45 сек</div>
+          </div>
+        </div>
+        <div class="ai-opt-arrow" id="arr-balance">›</div>
+      </button>
+
+    </div>
+
+    <!-- Загрузка -->
+    <div id="ai-loading" class="ai-loading hidden">
+      <div class="ai-spinner"></div>
+      <div class="ai-loading-text">Анализирую записи...</div>
+    </div>
+
+    <!-- Результат -->
+    <div id="ai-result" class="card hidden">
+      <div class="card-label" id="ai-result-label"></div>
+      <div id="ai-result-text" class="ai-result-text"></div>
+    </div>
+
+    <!-- Мало данных -->
+    <div id="ai-need-more" class="card hidden">
+      <div class="ai-need-more-icon">📝</div>
+      <div id="ai-need-more-text" class="ai-need-more-text"></div>
+    </div>
+
+  </div>
+
+
+</div><!-- #app -->
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-screen="entry" onclick="showScreen('entry', this)">
+    <span class="nav-icon">📖</span>
+    <span class="nav-label">Дневник</span>
+  </button>
+  <button class="nav-btn" data-screen="today" onclick="showScreen('today', this)">
+    <span class="nav-icon">✅</span>
+    <span class="nav-label">Сделано</span>
+  </button>
+  <button class="nav-btn" data-screen="insights" onclick="showScreen('insights', this)">
+    <span class="nav-icon">📈</span>
+    <span class="nav-label">Статистика</span>
+  </button>
+  <button class="nav-btn" data-screen="ai" onclick="showScreen('ai', this)">
+    <span class="nav-icon">✨</span>
+    <span class="nav-label">AI</span>
+  </button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

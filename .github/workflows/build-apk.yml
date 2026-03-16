@@ -1,0 +1,62 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Ветка с кодом android-app'
+        required: false
+        default: 'main'
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || 'main' }}
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: android-app
+        run: npm install
+
+      - name: Generate native Android project
+        working-directory: android-app
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build debug APK
+        working-directory: android-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dnevnik-${{ github.run_number }}.apk
+          path: android-app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          SIZE=$(du -sh android-app/android/app/build/outputs/apk/debug/app-debug.apk | cut -f1)
+          echo "## APK готов ($SIZE)" >> $GITHUB_STEP_SUMMARY
+          echo "Скачай в разделе **Artifacts** ниже." >> $GITHUB_STEP_SUMMARY
+          echo "На телефоне разреши установку из неизвестных источников." >> $GITHUB_STEP_SUMMARY
