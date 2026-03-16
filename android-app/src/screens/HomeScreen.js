@@ -6,7 +6,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getEntry, getPlansForDate, getOverduePlans, getPendingPlans, updatePlanStatus } from '../db/database';
-import { COLORS, STYLES } from '../theme';
+import { COLORS } from '../theme';
 
 function today() {
   return new Date().toISOString().split('T')[0];
