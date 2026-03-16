@@ -40,10 +40,26 @@ jobs:
       - name: Create placeholder assets
         run: |
           mkdir -p android-app/assets
-          convert -size 1024x1024 xc:"#1a1a2e" android-app/assets/icon.png
-          convert -size 1242x2688 xc:"#1a1a2e" android-app/assets/splash.png
-          convert -size 1024x1024 xc:"#1a1a2e" android-app/assets/adaptive-icon.png
-          convert -size 96x96 xc:"#6c63ff" android-app/assets/notification-icon.png
+          python3 - <<'EOF'
+          import struct, zlib
+
+          def make_png(w, h, r, g, b, path):
+              def chunk(name, data):
+                  c = zlib.crc32(name + data) & 0xffffffff
+                  return struct.pack('>I', len(data)) + name + data + struct.pack('>I', c)
+              raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
+              idat = zlib.compress(raw)
+              png = b'\x89PNG\r\n\x1a\n'
+              png += chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+              png += chunk(b'IDAT', idat)
+              png += chunk(b'IEND', b'')
+              open(path, 'wb').write(png)
+
+          make_png(1024, 1024, 26, 26, 46,  'android-app/assets/icon.png')
+          make_png(1242, 2688, 26, 26, 46,  'android-app/assets/splash.png')
+          make_png(1024, 1024, 26, 26, 46,  'android-app/assets/adaptive-icon.png')
+          make_png(96,   96,   108, 99, 255, 'android-app/assets/notification-icon.png')
+          EOF
 
       - name: Generate native Android project
         working-directory: android-app
