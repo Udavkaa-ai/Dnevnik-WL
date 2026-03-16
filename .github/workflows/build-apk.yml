@@ -37,6 +37,15 @@ jobs:
         working-directory: android-app
         run: npm install
 
+      - name: Patch expo-modules-core for Gradle 8.8+ compatibility
+        working-directory: android-app
+        run: |
+          # Fix "Could not get unknown property 'release' for SoftwareComponent container"
+          # which occurs in Gradle 8.8+ with older expo-modules-core
+          sed -i 's/from components\.release/from components.getByName("release")/' \
+            node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
+          echo "Patched ExpoModulesCorePlugin.gradle"
+
       - name: Create placeholder assets
         run: |
           mkdir -p android-app/assets
