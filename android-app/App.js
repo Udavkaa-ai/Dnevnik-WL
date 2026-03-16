@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -66,17 +67,24 @@ function HomeTabs() {
 }
 
 export default function App() {
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
-    // Initialize database on startup
-    openDatabase().catch(console.error);
+    openDatabase()
+      .catch(console.error)
+      .finally(() => setIsReady(true));
 
-    // Handle notification tap
-    const sub = Notifications.addNotificationResponseReceivedListener(() => {
-      // Could navigate to specific screen here
-    });
-
+    const sub = Notifications.addNotificationResponseReceivedListener(() => {});
     return () => sub.remove();
   }, []);
+
+  if (!isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a2e' }}>
+        <ActivityIndicator size="large" color="#6c63ff" />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>
