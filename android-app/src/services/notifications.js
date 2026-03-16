@@ -43,9 +43,10 @@ export async function scheduleDailyNotification(identifier, hour, minute, title,
       channelId: 'diary-reminders',
     },
     trigger: {
-      type: 'daily',
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
       minute,
+      repeats: true,
     },
   });
 
