@@ -80,10 +80,12 @@ export default function EntryScreen({ route, navigation }) {
         mood_score: moodScore,
       });
 
-      // Save plans for tomorrow
-      const tasks = plansText.split('\n').filter(t => t.trim());
-      if (tasks.length > 0) {
-        await addPlans(tomorrow(dateStr), tasks);
+      // Save plans for tomorrow (only in new entry mode, not edit)
+      if (!editMode) {
+        const tasks = plansText.split('\n').filter(t => t.trim());
+        if (tasks.length > 0) {
+          await addPlans(tomorrow(dateStr), tasks);
+        }
       }
 
       setStep(STEPS.indexOf('done_screen'));

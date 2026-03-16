@@ -74,6 +74,10 @@ jobs:
         working-directory: android-app
         run: npx expo prebuild --platform android --no-install
 
+      - name: Enable JS bundling in debug build
+        working-directory: android-app/android
+        run: echo "bundleInDebug=true" >> gradle.properties
+
       - name: Build debug APK
         working-directory: android-app/android
         run: |

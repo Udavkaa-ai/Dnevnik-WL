@@ -57,22 +57,31 @@ function formatUserProfile(user) {
 }
 
 async function callAI(apiKey, model, systemMsg, userMsg) {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'com.dnevnik.app',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 1500,
-      messages: [
-        { role: 'system', content: systemMsg },
-        { role: 'user', content: userMsg },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+
+  let response;
+  try {
+    response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'com.dnevnik.app',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1500,
+        messages: [
+          { role: 'system', content: systemMsg },
+          { role: 'user', content: userMsg },
+        ],
+      }),
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const err = await response.text();
@@ -80,7 +89,9 @@ async function callAI(apiKey, model, systemMsg, userMsg) {
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Пустой ответ от AI');
+  return content;
 }
 
 export async function analyzeGeneral(entries, days, user, apiKey) {
