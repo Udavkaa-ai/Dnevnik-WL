@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - 'claude/**'
+    paths:
+      - 'android-app/**'
+  workflow_dispatch: # позволяет запустить вручную из GitHub UI
+
+jobs:
+  build:
+    name: Build APK (EAS)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: android-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: android-app
+        run: npm install
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build APK via EAS
+        working-directory: android-app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --output ./build/app.apk
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dnevnik-app-${{ github.run_number }}
+          path: android-app/build/app.apk
+          retention-days: 30
+
+      - name: Comment APK download link
+        if: github.event_name == 'push'
+        run: |
+          echo "✅ APK собран успешно!"
+          echo "Скачать: перейди в Actions → этот workflow → раздел Artifacts"
