@@ -37,6 +37,14 @@ jobs:
         working-directory: android-app
         run: npm install
 
+      - name: Create placeholder assets
+        run: |
+          mkdir -p android-app/assets
+          convert -size 1024x1024 xc:"#1a1a2e" android-app/assets/icon.png
+          convert -size 1242x2688 xc:"#1a1a2e" android-app/assets/splash.png
+          convert -size 1024x1024 xc:"#1a1a2e" android-app/assets/adaptive-icon.png
+          convert -size 96x96 xc:"#6c63ff" android-app/assets/notification-icon.png
+
       - name: Generate native Android project
         working-directory: android-app
         run: npx expo prebuild --platform android --no-install
