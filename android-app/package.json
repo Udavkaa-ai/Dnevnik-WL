@@ -1,7 +1,7 @@
 {
   "name": "dnevnik-app",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "App.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -11,7 +11,7 @@
   "dependencies": {
     "expo": "~51.0.28",
     "expo-status-bar": "~1.12.1",
-    "expo-sqlite": "~14.0.6",
+    "expo-sqlite": "~13.4.0",
     "expo-notifications": "~0.28.19",
     "expo-file-system": "~17.0.1",
     "expo-sharing": "~12.0.1",
