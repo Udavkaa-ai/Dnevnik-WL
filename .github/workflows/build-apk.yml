@@ -74,9 +74,15 @@ jobs:
         working-directory: android-app
         run: npx expo prebuild --platform android --no-install
 
-      - name: Enable JS bundling in debug build
-        working-directory: android-app/android
-        run: echo "bundleInDebug=true" >> gradle.properties
+      - name: Bundle JS with expo export:embed
+        working-directory: android-app
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx expo export:embed \
+            --platform android \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res
+          echo "Bundle size: $(du -sh android/app/src/main/assets/index.android.bundle)"
 
       - name: Build debug APK
         working-directory: android-app/android
