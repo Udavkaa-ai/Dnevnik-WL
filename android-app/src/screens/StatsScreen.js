@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
-import { getMoodData, getTaskStats, getRecentEntries } from '../db/database';
+import { getMoodData, getTaskStats } from '../db/database';
 import { COLORS } from '../theme';
 
 const screenWidth = Dimensions.get('window').width;
@@ -25,14 +25,18 @@ export default function StatsScreen() {
   }, [period]));
 
   const loadData = async () => {
-    const [md, ts7, ts30] = await Promise.all([
-      getMoodData(period),
-      getTaskStats(7),
-      getTaskStats(30),
-    ]);
-    setMoodData(md.reverse()); // chronological order
-    setTaskStats(ts7);
-    setTaskStats30(ts30);
+    try {
+      const [md, ts7, ts30] = await Promise.all([
+        getMoodData(period),
+        getTaskStats(7),
+        getTaskStats(30),
+      ]);
+      setMoodData(md.reverse()); // chronological order
+      setTaskStats(ts7);
+      setTaskStats30(ts30);
+    } catch (e) {
+      console.log('Stats load error:', e.message);
+    }
   };
 
   const chartData = moodData.filter(d => d.mood_score != null);

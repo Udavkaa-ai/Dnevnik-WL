@@ -154,20 +154,32 @@ export async function addPlan(date, taskText) {
 
 export async function addPlans(date, tasks) {
   const db = await openDatabase();
-  for (const task of tasks) {
-    if (task.trim()) {
-      await db.runAsync(
-        'INSERT INTO plans (user_id, plan_date, task_text) VALUES (1, ?, ?)',
-        [date, task.trim()]
-      );
+  await db.execAsync('BEGIN');
+  try {
+    for (const task of tasks) {
+      if (task.trim()) {
+        await db.runAsync(
+          'INSERT INTO plans (user_id, plan_date, task_text) VALUES (1, ?, ?)',
+          [date, task.trim()]
+        );
+      }
     }
+    await db.execAsync('COMMIT');
+  } catch (e) {
+    await db.execAsync('ROLLBACK');
+    throw e;
   }
 }
 
 export async function updatePlanStatus(id, status, extra = {}) {
   const db = await openDatabase();
   const { reason, moved_to } = extra;
-  if (status === 'done') {
+  if (status === 'pending') {
+    await db.runAsync(
+      `UPDATE plans SET status = 'pending', checked_at = NULL WHERE id = ?`,
+      [id]
+    );
+  } else if (status === 'done') {
     await db.runAsync(
       `UPDATE plans SET status = 'done', checked_at = CURRENT_TIMESTAMP WHERE id = ?`,
       [id]

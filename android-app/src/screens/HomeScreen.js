@@ -6,16 +6,8 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getEntry, getPlansForDate, getOverduePlans, getPendingPlans, updatePlanStatus } from '../db/database';
+import { today, formatDate, moodColor } from '../utils';
 import { COLORS } from '../theme';
-
-function today() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-}
 
 export default function HomeScreen({ navigation }) {
   const [entry, setEntry] = useState(null);
@@ -24,15 +16,19 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
-    const todayStr = today();
-    const [e, tp, op] = await Promise.all([
-      getEntry(todayStr),
-      getPlansForDate(todayStr),
-      getOverduePlans(),
-    ]);
-    setEntry(e);
-    setTodayPlans(tp);
-    setOverduePlans(op.filter(p => p.plan_date !== todayStr));
+    try {
+      const todayStr = today();
+      const [e, tp, op] = await Promise.all([
+        getEntry(todayStr),
+        getPlansForDate(todayStr),
+        getOverduePlans(),
+      ]);
+      setEntry(e);
+      setTodayPlans(tp);
+      setOverduePlans(op.filter(p => p.plan_date !== todayStr));
+    } catch (e) {
+      console.log('Home load error:', e.message);
+    }
   };
 
   useFocusEffect(useCallback(() => { load(); }, []));
@@ -76,13 +72,6 @@ export default function HomeScreen({ navigation }) {
         { text: '🗑 Отменить', style: 'destructive', onPress: async () => { await updatePlanStatus(plan.id, 'cancelled'); load(); } },
       ]
     );
-  };
-
-  const moodColor = (score) => {
-    if (!score) return COLORS.textSecondary;
-    if (score >= 8) return '#4caf50';
-    if (score >= 6) return '#ff9800';
-    return '#f44336';
   };
 
   const todayStr = today();

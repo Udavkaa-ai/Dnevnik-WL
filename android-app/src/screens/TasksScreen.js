@@ -6,24 +6,8 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getPendingPlans, addPlan, updatePlanStatus, deletePlan } from '../db/database';
+import { today, addDays, formatDateRelative } from '../utils';
 import { COLORS } from '../theme';
-
-function today() { return new Date().toISOString().split('T')[0]; }
-
-function addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
-}
-
-function formatDate(dateStr) {
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = addDays(today, 1);
-  if (dateStr === today) return 'Сегодня';
-  if (dateStr === tomorrow) return 'Завтра';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
-}
 
 export default function TasksScreen() {
   const [plans, setPlans] = useState([]);
@@ -36,8 +20,12 @@ export default function TasksScreen() {
   useFocusEffect(useCallback(() => { loadPlans(); }, []));
 
   const loadPlans = async () => {
-    const data = await getPendingPlans();
-    setPlans(data);
+    try {
+      const data = await getPendingPlans();
+      setPlans(data);
+    } catch (e) {
+      console.log('Tasks load error:', e.message);
+    }
   };
 
   const grouped = plans.reduce((acc, plan) => {
@@ -59,7 +47,7 @@ export default function TasksScreen() {
   const handleTaskAction = (plan) => {
     Alert.alert(
       plan.task_text,
-      formatDate(plan.plan_date),
+      formatDateRelative(plan.plan_date),
       [
         { text: 'Отмена', style: 'cancel' },
         {
@@ -135,7 +123,7 @@ export default function TasksScreen() {
               date === today() && styles.groupHeaderToday,
             ]}>
               {date < today() && '⚠️ '}
-              {formatDate(date)}
+              {formatDateRelative(date)}
               {date < today() && ' (просрочено)'}
             </Text>
             {grouped[date].map(plan => (
@@ -187,7 +175,7 @@ export default function TasksScreen() {
                     onPress={() => setNewTaskDate(d)}
                   >
                     <Text style={[styles.datePillText, newTaskDate === d && styles.datePillTextActive]}>
-                      {n === 0 ? 'Сегодня' : n === 1 ? 'Завтра' : formatDate(d)}
+                      {n === 0 ? 'Сегодня' : n === 1 ? 'Завтра' : formatDateRelative(d)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -231,7 +219,7 @@ export default function TasksScreen() {
               >
                 <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
                 <Text style={styles.moveOptionText}>{label}</Text>
-                <Text style={styles.moveOptionDate}>{formatDate(addDays(today(), days))}</Text>
+                <Text style={styles.moveOptionDate}>{formatDateRelative(addDays(today(), days))}</Text>
               </TouchableOpacity>
             ))}
           </Pressable>
