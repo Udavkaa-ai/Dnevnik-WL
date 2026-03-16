@@ -74,26 +74,37 @@ jobs:
         working-directory: android-app
         run: npx expo prebuild --platform android --no-install
 
-      - name: Enable JS bundling in debug build
-        working-directory: android-app/android
-        run: echo "bundleInDebug=true" >> gradle.properties
+      - name: Bundle JS with expo export:embed
+        working-directory: android-app
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx expo export:embed \
+            --platform android \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res \
+            --dev false
+          echo "Bundle size: $(du -sh android/app/src/main/assets/index.android.bundle)"
 
-      - name: Build debug APK
+      - name: Build release APK (signed with debug keystore)
         working-directory: android-app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file=$HOME/.android/debug.keystore \
+            -Pandroid.injected.signing.store.password=android \
+            -Pandroid.injected.signing.key.alias=androiddebugkey \
+            -Pandroid.injected.signing.key.password=android
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: dnevnik-${{ github.run_number }}.apk
-          path: android-app/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android-app/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
       - name: Summary
         run: |
-          SIZE=$(du -sh android-app/android/app/build/outputs/apk/debug/app-debug.apk | cut -f1)
+          SIZE=$(du -sh android-app/android/app/build/outputs/apk/release/app-release.apk | cut -f1)
           echo "## APK готов ($SIZE)" >> $GITHUB_STEP_SUMMARY
           echo "Скачай в разделе **Artifacts** ниже." >> $GITHUB_STEP_SUMMARY
           echo "На телефоне разреши установку из неизвестных источников." >> $GITHUB_STEP_SUMMARY
