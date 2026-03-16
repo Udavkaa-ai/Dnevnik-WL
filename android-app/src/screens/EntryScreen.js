@@ -7,20 +7,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getEntry, upsertEntry, addPlans, getUser } from '../db/database';
 import { dailyTip } from '../services/ai';
+import { formatDateWithWeekday, tomorrow, moodLabel } from '../utils';
 import { COLORS } from '../theme';
 
 const STEPS = ['done', 'not_done', 'mood', 'plans', 'done_screen'];
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
-}
-
-function tomorrow(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
-}
 
 export default function EntryScreen({ route, navigation }) {
   const { date, editMode = false } = route.params || {};
@@ -139,7 +129,7 @@ export default function EntryScreen({ route, navigation }) {
           <Text style={styles.doneEmoji}>🎉</Text>
           <Text style={styles.doneTitle}>Запись сохранена!</Text>
           <Text style={styles.doneSub}>
-            {formatDate(dateStr)} • Оценка дня: {moodScore}/10
+            {formatDateWithWeekday(dateStr)} • Оценка дня: {moodScore}/10
           </Text>
 
           {loading && (
@@ -216,7 +206,7 @@ export default function EntryScreen({ route, navigation }) {
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.dateLabel}>{formatDate(dateStr)}</Text>
+          <Text style={styles.dateLabel}>{formatDateWithWeekday(dateStr)}</Text>
 
           {currentStep === 'mood' ? (
             <>
@@ -225,11 +215,7 @@ export default function EntryScreen({ route, navigation }) {
               {renderMoodSelector()}
               {moodScore && (
                 <Text style={styles.moodLabel}>
-                  {moodScore >= 9 ? '🚀 Отличный день!' :
-                    moodScore >= 7 ? '😊 Хороший день' :
-                      moodScore >= 5 ? '😐 Нормально' :
-                        moodScore >= 3 ? '😔 Непростой день' :
-                          '😞 Тяжёлый день'}
+                  {moodLabel(moodScore)}
                 </Text>
               )}
             </>
@@ -271,8 +257,7 @@ export default function EntryScreen({ route, navigation }) {
               ) : (
                 <>
                   <Text style={styles.nextBtnText}>
-                    {currentStep === 'plans' ? 'Сохранить' :
-                      currentStep === 'not_done' ? 'Далее' : 'Далее'}
+                    {currentStep === 'plans' ? 'Сохранить' : 'Далее'}
                   </Text>
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </>

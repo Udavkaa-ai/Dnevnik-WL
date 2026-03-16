@@ -5,35 +5,15 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllEntries } from '../db/database';
+import { formatDateFull, moodColor, moodEmoji } from '../utils';
 import { COLORS } from '../theme';
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
-}
-
-function moodColor(score) {
-  if (!score) return COLORS.textSecondary;
-  if (score >= 8) return '#4caf50';
-  if (score >= 6) return '#ff9800';
-  return '#f44336';
-}
-
-function moodEmoji(score) {
-  if (!score) return '—';
-  if (score >= 9) return '🚀';
-  if (score >= 7) return '😊';
-  if (score >= 5) return '😐';
-  if (score >= 3) return '😔';
-  return '😞';
-}
 
 export default function DiaryScreen({ navigation }) {
   const [entries, setEntries] = useState([]);
   const [selectedEntry, setSelectedEntry] = useState(null);
 
   useFocusEffect(useCallback(() => {
-    getAllEntries().then(setEntries);
+    getAllEntries().then(setEntries).catch(e => console.log('Diary load error:', e.message));
   }, []));
 
   const renderEntry = ({ item }) => (
@@ -48,7 +28,7 @@ export default function DiaryScreen({ navigation }) {
       </View>
       <View style={styles.entryRight}>
         <View style={styles.entryHeader}>
-          <Text style={styles.entryDate}>{formatDate(item.date)}</Text>
+          <Text style={styles.entryDate}>{formatDateFull(item.date)}</Text>
           {item.mood_score && (
             <Text style={[styles.entryMood, { color: moodColor(item.mood_score) }]}>
               {item.mood_score}/10
@@ -99,7 +79,7 @@ export default function DiaryScreen({ navigation }) {
             {selectedEntry && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalDate}>{formatDate(selectedEntry.date)}</Text>
+                  <Text style={styles.modalDate}>{formatDateFull(selectedEntry.date)}</Text>
                   <TouchableOpacity onPress={() => setSelectedEntry(null)}>
                     <Ionicons name="close" size={24} color={COLORS.textSecondary} />
                   </TouchableOpacity>

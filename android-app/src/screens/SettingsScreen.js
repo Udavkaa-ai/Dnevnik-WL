@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Share, Switch, ActivityIndicator,
+  TextInput, Alert, Switch, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { getUser, updateUser, exportDiary } from '../db/database';
@@ -84,9 +85,15 @@ export default function SettingsScreen() {
   }, []));
 
   const loadUser = async () => {
-    const u = await getUser();
-    setUser(u);
-    setApiKey(u?.openrouter_key || '');
+    try {
+      const u = await getUser();
+      setUser(u);
+      setApiKey(u?.openrouter_key || '');
+      const stored = await AsyncStorage.getItem('notifications_enabled');
+      if (stored === 'true') setNotificationsEnabled(true);
+    } catch (e) {
+      console.log('Settings load error:', e.message);
+    }
   };
 
   const save = async (fields) => {
@@ -104,18 +111,23 @@ export default function SettingsScreen() {
   };
 
   const toggleNotifications = async (enabled) => {
-    if (enabled) {
-      const granted = await requestPermissions();
-      if (!granted) {
-        Alert.alert('Нет разрешения', 'Разреши уведомления в настройках системы');
-        return;
+    try {
+      if (enabled) {
+        const granted = await requestPermissions();
+        if (!granted) {
+          Alert.alert('Нет разрешения', 'Разреши уведомления в настройках системы');
+          return;
+        }
+        await scheduleMorningReminder(user.morning_time);
+        await scheduleEveningReminder(user.evening_time);
+      } else {
+        await cancelAllReminders();
       }
-      await scheduleMorningReminder(user.morning_time);
-      await scheduleEveningReminder(user.evening_time);
-    } else {
-      await cancelAllReminders();
+      setNotificationsEnabled(enabled);
+      await AsyncStorage.setItem('notifications_enabled', String(enabled));
+    } catch (e) {
+      Alert.alert('Ошибка', e.message);
     }
-    setNotificationsEnabled(enabled);
   };
 
   const saveApiKey = async () => {

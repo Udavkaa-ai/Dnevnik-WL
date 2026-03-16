@@ -33,6 +33,19 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Create debug keystore
+        run: |
+          mkdir -p $HOME/.android
+          keytool -genkeypair -v \
+            -keystore $HOME/.android/debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Install dependencies
         working-directory: android-app
         run: npm install
@@ -73,17 +86,6 @@ jobs:
       - name: Generate native Android project
         working-directory: android-app
         run: npx expo prebuild --platform android --no-install
-
-      - name: Bundle JS with expo export:embed
-        working-directory: android-app
-        run: |
-          mkdir -p android/app/src/main/assets
-          npx expo export:embed \
-            --platform android \
-            --bundle-output android/app/src/main/assets/index.android.bundle \
-            --assets-dest android/app/src/main/res \
-            --dev false
-          echo "Bundle size: $(du -sh android/app/src/main/assets/index.android.bundle)"
 
       - name: Build release APK (signed with debug keystore)
         working-directory: android-app/android

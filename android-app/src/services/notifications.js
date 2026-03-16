@@ -43,9 +43,9 @@ export async function scheduleDailyNotification(identifier, hour, minute, title,
       channelId: 'diary-reminders',
     },
     trigger: {
+      type: 'daily',
       hour,
       minute,
-      repeats: true,
     },
   });
 
