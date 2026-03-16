@@ -1,54 +1,59 @@
 import * as SQLite from 'expo-sqlite';
 
 let db = null;
+let dbInitPromise = null;
 
 export async function openDatabase() {
   if (db) return db;
-  db = await SQLite.openDatabaseAsync('diary.db');
+  if (!dbInitPromise) {
+    dbInitPromise = (async () => {
+      const database = await SQLite.openDatabaseAsync('diary.db');
+      await database.execAsync(`
+        PRAGMA journal_mode = WAL;
+        PRAGMA foreign_keys = ON;
 
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
+        CREATE TABLE IF NOT EXISTS users (
+          user_id       INTEGER PRIMARY KEY,
+          name          TEXT,
+          morning_time  TEXT DEFAULT '09:00',
+          evening_time  TEXT DEFAULT '21:00',
+          gender        TEXT,
+          family_status TEXT,
+          openrouter_key TEXT
+        );
 
-    CREATE TABLE IF NOT EXISTS users (
-      user_id       INTEGER PRIMARY KEY,
-      name          TEXT,
-      morning_time  TEXT DEFAULT '09:00',
-      evening_time  TEXT DEFAULT '21:00',
-      gender        TEXT,
-      family_status TEXT,
-      openrouter_key TEXT
-    );
+        CREATE TABLE IF NOT EXISTS entries (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id     INTEGER NOT NULL DEFAULT 1,
+          date        TEXT NOT NULL,
+          done        TEXT,
+          not_done    TEXT,
+          mood_score  INTEGER,
+          ai_tip      TEXT,
+          created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, date)
+        );
 
-    CREATE TABLE IF NOT EXISTS entries (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id     INTEGER NOT NULL DEFAULT 1,
-      date        TEXT NOT NULL,
-      done        TEXT,
-      not_done    TEXT,
-      mood_score  INTEGER,
-      ai_tip      TEXT,
-      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, date)
-    );
+        CREATE TABLE IF NOT EXISTS plans (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id      INTEGER NOT NULL DEFAULT 1,
+          plan_date    TEXT NOT NULL,
+          task_text    TEXT NOT NULL,
+          status       TEXT DEFAULT 'pending',
+          reason       TEXT,
+          moved_to     TEXT,
+          checked_at   DATETIME,
+          created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
 
-    CREATE TABLE IF NOT EXISTS plans (
-      id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id      INTEGER NOT NULL DEFAULT 1,
-      plan_date    TEXT NOT NULL,
-      task_text    TEXT NOT NULL,
-      status       TEXT DEFAULT 'pending',
-      reason       TEXT,
-      moved_to     TEXT,
-      checked_at   DATETIME,
-      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    INSERT OR IGNORE INTO users (user_id, name, morning_time, evening_time)
-    VALUES (1, 'Пользователь', '09:00', '21:00');
-  `);
-
-  return db;
+        INSERT OR IGNORE INTO users (user_id, name, morning_time, evening_time)
+        VALUES (1, 'Пользователь', '09:00', '21:00');
+      `);
+      db = database;
+      return db;
+    })();
+  }
+  return dbInitPromise;
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -189,7 +194,6 @@ export async function updatePlanStatus(id, status, extra = {}) {
       `UPDATE plans SET status = 'moved', moved_to = ?, reason = ? WHERE id = ?`,
       [moved_to, reason || null, id]
     );
-    // Create new pending task for the new date
     const plan = await db.getFirstAsync('SELECT task_text FROM plans WHERE id = ?', [id]);
     if (plan) {
       await db.runAsync(
