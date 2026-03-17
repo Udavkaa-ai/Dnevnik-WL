@@ -53,7 +53,11 @@ function formatUserProfile(user) {
     children: 'Семья с детьми',
   }[user.family_status] || null;
   const parts = [gender, family].filter(Boolean);
-  return parts.length ? `\nПрофиль: ${parts.join(', ')}.` : '';
+  let profile = parts.length ? `\nПрофиль: ${parts.join(', ')}.` : '';
+  if (user.bio && user.bio.trim()) {
+    profile += `\nО себе: ${user.bio.trim()}`;
+  }
+  return profile;
 }
 
 async function callAI(apiKey, model, systemMsg, userMsg) {
