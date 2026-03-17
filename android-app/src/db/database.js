@@ -125,8 +125,23 @@ export async function upsertEntry(date, fields) {
 export async function getPlansForDate(date) {
   const db = await openDatabase();
   return await db.getAllAsync(
-    'SELECT * FROM plans WHERE user_id = 1 AND plan_date = ? ORDER BY id',
+    "SELECT * FROM plans WHERE user_id = 1 AND plan_date = ? AND status IN ('pending', 'done') ORDER BY id",
     [date]
+  );
+}
+
+export async function getUndatedPlans() {
+  const db = await openDatabase();
+  return await db.getAllAsync(
+    "SELECT * FROM plans WHERE user_id = 1 AND plan_date = 'undated' AND status = 'pending' ORDER BY id"
+  );
+}
+
+export async function moveToUndated(id) {
+  const db = await openDatabase();
+  await db.runAsync(
+    "UPDATE plans SET plan_date = 'undated', status = 'pending' WHERE id = ?",
+    [id]
   );
 }
 

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 
 import { openDatabase } from './src/db/database';
-import { COLORS } from './src/theme';
+import { ThemeProvider, useColors, useTheme } from './src/ThemeContext';
 
 import HomeScreen from './src/screens/HomeScreen';
 import EntryScreen from './src/screens/EntryScreen';
@@ -22,6 +22,9 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function HomeTabs() {
+  const COLORS = useColors();
+  const { isDark } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -66,6 +69,38 @@ function HomeTabs() {
   );
 }
 
+function AppNavigator() {
+  const COLORS = useColors();
+  const { isDark } = useTheme();
+
+  return (
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: { backgroundColor: COLORS.surface },
+            headerTintColor: COLORS.text,
+            headerTitleStyle: { fontWeight: '700' },
+          }}
+        >
+          <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Entry"
+            component={EntryScreen}
+            options={({ route }) => ({
+              title: route.params?.editMode ? 'Редактировать запись' : 'Итог дня',
+              presentation: 'modal',
+            })}
+          />
+          <Stack.Screen name="Analysis" component={AnalysisScreen} options={{ title: 'AI Анализ' }} />
+          <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Настройки' }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </>
+  );
+}
+
 export default function App() {
   const [isReady, setIsReady] = useState(false);
 
@@ -87,39 +122,8 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar style="dark" />
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: COLORS.surface },
-          headerTintColor: COLORS.text,
-          headerTitleStyle: { fontWeight: '700' },
-        }}
-      >
-        <Stack.Screen
-          name="Main"
-          component={HomeTabs}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Entry"
-          component={EntryScreen}
-          options={({ route }) => ({
-            title: route.params?.editMode ? 'Редактировать запись' : 'Итог дня',
-            presentation: 'modal',
-          })}
-        />
-        <Stack.Screen
-          name="Analysis"
-          component={AnalysisScreen}
-          options={{ title: 'AI Анализ' }}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{ title: 'Настройки' }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <ThemeProvider>
+      <AppNavigator />
+    </ThemeProvider>
   );
 }
