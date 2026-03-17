@@ -59,29 +59,6 @@ jobs:
             node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
           echo "Patched ExpoModulesCorePlugin.gradle"
 
-      - name: Create placeholder assets
-        run: |
-          mkdir -p android-app/assets
-          python3 - <<'EOF'
-          import struct, zlib
-
-          def make_png(w, h, r, g, b, path):
-              def chunk(name, data):
-                  c = zlib.crc32(name + data) & 0xffffffff
-                  return struct.pack('>I', len(data)) + name + data + struct.pack('>I', c)
-              raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
-              idat = zlib.compress(raw)
-              png = b'\x89PNG\r\n\x1a\n'
-              png += chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
-              png += chunk(b'IDAT', idat)
-              png += chunk(b'IEND', b'')
-              open(path, 'wb').write(png)
-
-          make_png(1024, 1024, 26, 26, 46,  'android-app/assets/icon.png')
-          make_png(1242, 2688, 26, 26, 46,  'android-app/assets/splash.png')
-          make_png(1024, 1024, 26, 26, 46,  'android-app/assets/adaptive-icon.png')
-          make_png(96,   96,   108, 99, 255, 'android-app/assets/notification-icon.png')
-          EOF
 
       - name: Generate native Android project
         working-directory: android-app
