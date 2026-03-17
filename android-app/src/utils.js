@@ -1,17 +1,22 @@
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function today() {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr(new Date());
 }
 
 export function tomorrow(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return localDateStr(new Date(y, m - 1, d + 1));
 }
 
 export function addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return localDateStr(new Date(y, m - 1, d + n));
 }
 
 export function formatDate(dateStr, options = {}) {
