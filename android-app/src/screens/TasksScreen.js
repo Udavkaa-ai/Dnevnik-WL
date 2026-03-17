@@ -101,7 +101,7 @@ export default function TasksScreen() {
     if (b === 'undated') return -1;
     return b.localeCompare(a);
   });
-  const visibleHistoryDates = historyExpanded ? historyDates : historyDates.slice(0, 3);
+  const visibleHistoryDates = historyExpanded ? historyDates : [];
 
   // ── Handlers: one-off tasks ────────────────────────────────────────────────
   const handleAddTask = async () => {
@@ -355,10 +355,10 @@ export default function TasksScreen() {
                     {historyGrouped[date].map(t => renderTask(t, false))}
                   </View>
                 ))}
-                {!historyExpanded && historyDates.length > 3 && (
+                {!historyExpanded && (
                   <TouchableOpacity onPress={() => setHistoryExpanded(true)} style={styles.showMoreBtn}>
                     <Text style={styles.showMoreText}>
-                      Показать всю историю ({historyDates.length} дней)
+                      Показать историю ({historyDates.length} {historyDates.length === 1 ? 'день' : historyDates.length < 5 ? 'дня' : 'дней'})
                     </Text>
                   </TouchableOpacity>
                 )}
