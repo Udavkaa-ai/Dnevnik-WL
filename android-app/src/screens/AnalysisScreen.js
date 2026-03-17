@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getRecentEntries, getUser } from '../db/database';
 import { analyzeGeneral, analyzePsych, analyzeBalance } from '../services/ai';
 import { useColors } from '../ThemeContext';
+import MarkdownText from '../components/MarkdownText';
 
 const ANALYSES = [
   { id: 'general7', title: 'Общий анализ (7 дней)', icon: 'analytics-outline', days: 7, type: 'general' },
@@ -79,7 +80,7 @@ export default function AnalysisScreen({ navigation }) {
           </View>
           {results[analysis.id] && (
             <View style={styles.resultBox}>
-              <Text style={styles.resultText}>{results[analysis.id]}</Text>
+              <MarkdownText text={results[analysis.id]} style={styles.resultText} />
             </View>
           )}
         </View>
