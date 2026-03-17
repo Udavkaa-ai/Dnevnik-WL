@@ -166,7 +166,7 @@ export default function DiaryScreen({ navigation }) {
           <View style={styles.empty}>
             <Ionicons name="book-outline" size={60} color={COLORS.textSecondary} />
             <Text style={styles.emptyText}>Пока нет записей</Text>
-            <Text style={styles.emptySubtext}>Добавь первую запись через «Итог дня» на главной</Text>
+            <Text style={styles.emptySubtext}>Нажми на кнопку «Итог дня» на главной или выбери дату через календарь</Text>
           </View>
         }
         ListHeaderComponent={
@@ -216,13 +216,13 @@ export default function DiaryScreen({ navigation }) {
 
                 {selectedEntry.done && (
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>✅ Что сделал</Text>
+                    <Text style={styles.detailSectionTitle}>📝 Запись дня</Text>
                     <Text style={styles.detailSectionText}>{selectedEntry.done}</Text>
                   </View>
                 )}
                 {selectedEntry.not_done && (
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>❌ Не получилось</Text>
+                    <Text style={styles.detailSectionTitle}>📌 Заметка</Text>
                     <Text style={styles.detailSectionText}>{selectedEntry.not_done}</Text>
                   </View>
                 )}

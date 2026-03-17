@@ -158,6 +158,21 @@ export async function getPendingPlans() {
   );
 }
 
+// Returns all tasks for the planner tab EXCEPT today's pending tasks
+// (today's pending tasks are shown on the Home screen checklist)
+export async function getAllTasksForPlanner() {
+  const db = await openDatabase();
+  const todayStr = new Date().toISOString().split('T')[0];
+  return await db.getAllAsync(
+    `SELECT * FROM plans WHERE user_id = 1
+     AND NOT (plan_date = ? AND status = 'pending')
+     ORDER BY
+       CASE WHEN plan_date = 'undated' THEN '9999-99-99' ELSE plan_date END ASC,
+       id ASC`,
+    [todayStr]
+  );
+}
+
 export async function getOverduePlans() {
   const db = await openDatabase();
   const today = new Date().toISOString().split('T')[0];
@@ -267,121 +282,195 @@ export async function getTaskStats(days = 7) {
 
 // ─── Export / Import ─────────────────────────────────────────────────────────
 
-export async function importDiary(text) {
-  // Parse the exported .txt format and restore entries
-  const lines = text.split('\n');
-  const entries = [];
-  let current = null;
-
-  const flush = () => {
-    if (current && current.date) entries.push(current);
-    current = null;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // New entry starts with 📅 followed by a date
-    const dateMatch = line.match(/📅\s+(\d{4}-\d{2}-\d{2})/);
-    if (dateMatch) {
-      flush();
-      current = { date: dateMatch[1], done: null, not_done: null, mood_score: null, ai_tip: null };
-      continue;
-    }
-
-    if (!current) continue;
-
-    // ✅ Сделал: ...
-    const doneMatch = line.match(/✅\s+Сделал:\s*(.*)/);
-    if (doneMatch) {
-      const val = doneMatch[1].trim();
-      current.done = (val === '—' || val === '') ? null : val;
-      continue;
-    }
-
-    // ❌ Не получилось: ...
-    const notDoneMatch = line.match(/❌\s+Не получилось:\s*(.*)/);
-    if (notDoneMatch) {
-      const val = notDoneMatch[1].trim();
-      current.not_done = (val === '—' || val === '') ? null : val;
-      continue;
-    }
-
-    // 🎯 Оценка дня: N/10
-    const moodMatch = line.match(/🎯\s+Оценка дня:\s*(\d+)\/10/);
-    if (moodMatch) {
-      current.mood_score = parseInt(moodMatch[1], 10);
-      continue;
-    }
-
-    // 💡 Совет: ...
-    const tipMatch = line.match(/💡\s+Совет:\s*(.*)/);
-    if (tipMatch) {
-      current.ai_tip = tipMatch[1].trim() || null;
-      continue;
-    }
-  }
-  flush();
-
-  if (entries.length === 0) {
-    throw new Error('Записи не найдены. Проверь формат файла.');
-  }
-
-  const db = await openDatabase();
-  let imported = 0;
-  let skipped = 0;
-
-  await db.execAsync('BEGIN');
-  try {
-    for (const e of entries) {
-      const fields = {};
-      if (e.done !== null) fields.done = e.done;
-      if (e.not_done !== null) fields.not_done = e.not_done;
-      if (e.mood_score !== null) fields.mood_score = e.mood_score;
-      if (e.ai_tip !== null) fields.ai_tip = e.ai_tip;
-
-      const existing = await db.getFirstAsync(
-        'SELECT id FROM entries WHERE user_id = 1 AND date = ?', [e.date]
-      );
-      if (existing) {
-        skipped++;
-      } else {
-        const allFields = { user_id: 1, date: e.date, ...fields };
-        const keys = Object.keys(allFields);
-        const placeholders = keys.map(() => '?').join(', ');
-        await db.runAsync(
-          `INSERT INTO entries (${keys.join(', ')}) VALUES (${placeholders})`,
-          keys.map(k => allFields[k])
-        );
-        imported++;
-      }
-    }
-    await db.execAsync('COMMIT');
-  } catch (err) {
-    await db.execAsync('ROLLBACK');
-    throw err;
-  }
-
-  return { imported, skipped, total: entries.length };
-}
-
 export async function exportDiary() {
   const db = await openDatabase();
   const entries = await db.getAllAsync(
     'SELECT * FROM entries WHERE user_id = 1 ORDER BY date ASC'
   );
+  const plans = await db.getAllAsync(
+    'SELECT * FROM plans WHERE user_id = 1 ORDER BY plan_date ASC, id ASC'
+  );
 
   let text = 'ЛИЧНЫЙ ДНЕВНИК\n';
   text += '═'.repeat(40) + '\n\n';
 
+  // ── Entries section ──
+  text += '━━━ ЗАПИСИ ━━━\n\n';
   for (const e of entries) {
     text += `📅 ${e.date}\n`;
-    text += `✅ Сделал: ${e.done || '—'}\n`;
+    text += `✅ Текст: ${e.done || '—'}\n`;
     if (e.not_done) text += `❌ Не получилось: ${e.not_done}\n`;
     if (e.mood_score) text += `🎯 Оценка дня: ${e.mood_score}/10\n`;
     if (e.ai_tip) text += `💡 Совет: ${e.ai_tip}\n`;
     text += '\n';
   }
 
+  // ── Tasks section ──
+  text += '━━━ ЗАДАЧИ ━━━\n\n';
+  for (const p of plans) {
+    // Header line: 📋 <date> | <status> [| <moved_to>]
+    let header = `📋 ${p.plan_date} | ${p.status}`;
+    if (p.status === 'moved' && p.moved_to) header += ` | ${p.moved_to}`;
+    text += header + '\n';
+    text += p.task_text + '\n\n';
+  }
+
   return text;
+}
+
+export async function importDiary(text) {
+  const lines = text.split('\n');
+
+  // ── Split into sections ──
+  let entriesSection = text;
+  let tasksSection = '';
+
+  const tasksSep = text.indexOf('━━━ ЗАДАЧИ ━━━');
+  if (tasksSep !== -1) {
+    entriesSection = text.slice(0, tasksSep);
+    tasksSection = text.slice(tasksSep + '━━━ ЗАДАЧИ ━━━'.length);
+  }
+
+  // ── Parse entries ──
+  const entries = [];
+  let current = null;
+
+  const flushEntry = () => {
+    if (current && current.date) entries.push(current);
+    current = null;
+  };
+
+  for (const line of entriesSection.split('\n')) {
+    const dateMatch = line.match(/📅\s+(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      flushEntry();
+      current = { date: dateMatch[1], done: null, not_done: null, mood_score: null, ai_tip: null };
+      continue;
+    }
+    if (!current) continue;
+
+    // Support both old format (✅ Сделал:) and new (✅ Текст:)
+    const doneMatch = line.match(/✅\s+(?:Сделал|Текст):\s*(.*)/);
+    if (doneMatch) {
+      const val = doneMatch[1].trim();
+      current.done = (val === '—' || val === '') ? null : val;
+      continue;
+    }
+    const notDoneMatch = line.match(/❌\s+Не получилось:\s*(.*)/);
+    if (notDoneMatch) {
+      const val = notDoneMatch[1].trim();
+      current.not_done = (val === '—' || val === '') ? null : val;
+      continue;
+    }
+    const moodMatch = line.match(/🎯\s+Оценка дня:\s*(\d+)\/10/);
+    if (moodMatch) {
+      current.mood_score = parseInt(moodMatch[1], 10);
+      continue;
+    }
+    const tipMatch = line.match(/💡\s+Совет:\s*(.*)/);
+    if (tipMatch) {
+      current.ai_tip = tipMatch[1].trim() || null;
+      continue;
+    }
+  }
+  flushEntry();
+
+  // ── Parse tasks ──
+  const tasks = [];
+  if (tasksSection) {
+    let currentTask = null;
+
+    const flushTask = () => {
+      if (currentTask && currentTask.task_text) tasks.push(currentTask);
+      currentTask = null;
+    };
+
+    for (const line of tasksSection.split('\n')) {
+      // 📋 <date> | <status> [| <moved_to>]
+      const taskHeaderMatch = line.match(/📋\s+(\S+)\s+\|\s+(\w+)(?:\s+\|\s+(\S+))?/);
+      if (taskHeaderMatch) {
+        flushTask();
+        currentTask = {
+          plan_date: taskHeaderMatch[1],
+          status: taskHeaderMatch[2],
+          moved_to: taskHeaderMatch[3] || null,
+          task_text: null,
+        };
+        continue;
+      }
+      if (!currentTask) continue;
+      const trimmed = line.trim();
+      if (trimmed && !currentTask.task_text) {
+        currentTask.task_text = trimmed;
+      }
+    }
+    flushTask();
+  }
+
+  if (entries.length === 0 && tasks.length === 0) {
+    throw new Error('Данные не найдены. Проверь формат файла.');
+  }
+
+  const db = await openDatabase();
+  let imported = 0;
+  let skipped = 0;
+  let tasksImported = 0;
+  let tasksSkipped = 0;
+
+  await db.execAsync('BEGIN');
+  try {
+    // Import entries
+    for (const e of entries) {
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM entries WHERE user_id = 1 AND date = ?', [e.date]
+      );
+      if (existing) {
+        skipped++;
+      } else {
+        const fields = {};
+        if (e.done !== null) fields.done = e.done;
+        if (e.not_done !== null) fields.not_done = e.not_done;
+        if (e.mood_score !== null) fields.mood_score = e.mood_score;
+        if (e.ai_tip !== null) fields.ai_tip = e.ai_tip;
+        const allFields = { user_id: 1, date: e.date, ...fields };
+        const keys = Object.keys(allFields);
+        await db.runAsync(
+          `INSERT INTO entries (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
+          keys.map(k => allFields[k])
+        );
+        imported++;
+      }
+    }
+
+    // Import tasks — deduplicate by task_text + plan_date + status
+    for (const t of tasks) {
+      if (!t.task_text || !t.plan_date || !t.status) continue;
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM plans WHERE user_id = 1 AND task_text = ? AND plan_date = ? AND status = ?',
+        [t.task_text, t.plan_date, t.status]
+      );
+      if (existing) {
+        tasksSkipped++;
+      } else {
+        const fields = { user_id: 1, plan_date: t.plan_date, task_text: t.task_text, status: t.status };
+        if (t.moved_to) fields.moved_to = t.moved_to;
+        const keys = Object.keys(fields);
+        await db.runAsync(
+          `INSERT INTO plans (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
+          keys.map(k => fields[k])
+        );
+        tasksImported++;
+      }
+    }
+
+    await db.execAsync('COMMIT');
+  } catch (err) {
+    await db.execAsync('ROLLBACK');
+    throw err;
+  }
+
+  return {
+    imported, skipped, total: entries.length,
+    tasksImported, tasksSkipped, tasksTotal: tasks.length,
+  };
 }
