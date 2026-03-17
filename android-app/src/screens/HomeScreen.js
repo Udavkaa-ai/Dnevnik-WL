@@ -6,7 +6,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlansForDate, getOverduePlans, updatePlanStatus, addPlan } from '../db/database';
-import { today, addDays, formatDate, formatDateRelative } from '../utils';
+import { today, addDays, formatDate } from '../utils';
 import { useColors } from '../ThemeContext';
 
 const DAILY_QUOTES = [
