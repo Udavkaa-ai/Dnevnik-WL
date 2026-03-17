@@ -2,7 +2,7 @@
   "expo": {
     "name": "Дневник",
     "slug": "dnevnik-app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -22,6 +22,7 @@
         "backgroundColor": "#1a1a2e"
       },
       "package": "com.dnevnik.app",
+      "versionCode": 2,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
