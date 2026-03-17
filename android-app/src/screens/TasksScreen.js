@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Alert, Modal, Pressable,
 } from 'react-native';
+import { useOnboarding } from '../context/OnboardingContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -32,6 +33,7 @@ function recurrenceLabel(type, day) {
 export default function TasksScreen() {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { registerRef } = useOnboarding();
 
   const [tasks, setTasks] = useState([]);
   const [recurring, setRecurring] = useState([]);
@@ -101,7 +103,7 @@ export default function TasksScreen() {
     if (b === 'undated') return -1;
     return b.localeCompare(a);
   });
-  const visibleHistoryDates = historyExpanded ? historyDates : historyDates.slice(0, 3);
+  const visibleHistoryDates = historyExpanded ? historyDates : [];
 
   // ── Handlers: one-off tasks ────────────────────────────────────────────────
   const handleAddTask = async () => {
@@ -355,10 +357,10 @@ export default function TasksScreen() {
                     {historyGrouped[date].map(t => renderTask(t, false))}
                   </View>
                 ))}
-                {!historyExpanded && historyDates.length > 3 && (
+                {!historyExpanded && (
                   <TouchableOpacity onPress={() => setHistoryExpanded(true)} style={styles.showMoreBtn}>
                     <Text style={styles.showMoreText}>
-                      Показать всю историю ({historyDates.length} дней)
+                      Показать историю ({historyDates.length} {historyDates.length === 1 ? 'день' : historyDates.length < 5 ? 'дня' : 'дней'})
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -370,6 +372,8 @@ export default function TasksScreen() {
 
       {/* FAB */}
       <TouchableOpacity
+        ref={registerRef('tasksFab')}
+        collapsable={false}
         style={styles.fab}
         onPress={() => { setNewTaskDate(addDays(today(), 1)); setAddModalVisible(true); }}
       >

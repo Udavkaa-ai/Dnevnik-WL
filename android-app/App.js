@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -9,6 +9,8 @@ import * as Notifications from 'expo-notifications';
 
 import { openDatabase } from './src/db/database';
 import { ThemeProvider, useColors, useTheme } from './src/ThemeContext';
+import { OnboardingProvider } from './src/context/OnboardingContext';
+import OnboardingOverlay from './src/components/OnboardingOverlay';
 
 import HomeScreen from './src/screens/HomeScreen';
 import EntryScreen from './src/screens/EntryScreen';
@@ -69,14 +71,14 @@ function HomeTabs() {
   );
 }
 
-function AppNavigator() {
+function AppNavigator({ navigationRef }) {
   const COLORS = useColors();
   const { isDark } = useTheme();
 
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
             headerStyle: { backgroundColor: COLORS.surface },
@@ -103,6 +105,7 @@ function AppNavigator() {
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
+  const navigationRef = useRef(null);
 
   useEffect(() => {
     openDatabase()
@@ -123,7 +126,10 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <AppNavigator />
+      <OnboardingProvider navigationRef={navigationRef}>
+        <AppNavigator navigationRef={navigationRef} />
+        <OnboardingOverlay />
+      </OnboardingProvider>
     </ThemeProvider>
   );
 }

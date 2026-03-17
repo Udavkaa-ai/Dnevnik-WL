@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
 import { getMoodData, getTaskStats } from '../db/database';
 import { useColors } from '../ThemeContext';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -26,6 +27,7 @@ function StatBox({ label, value, suffix = '', color, textColor }) {
 export default function StatsScreen() {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { registerRef } = useOnboarding();
 
   const [moodData, setMoodData] = useState([]);
   const [taskStats, setTaskStats] = useState(null);
@@ -80,7 +82,7 @@ export default function StatsScreen() {
         ))}
       </View>
 
-      <View style={styles.card}>
+      <View ref={registerRef('statsChart')} collapsable={false} style={styles.card}>
         <Text style={styles.cardTitle}>График настроения</Text>
         {hasChart ? (
           <>

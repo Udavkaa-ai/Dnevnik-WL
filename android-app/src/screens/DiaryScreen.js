@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getAllEntries } from '../db/database';
 import { formatDateFull, moodColor, moodEmoji, today, addDays } from '../utils';
 import { useColors } from '../ThemeContext';
+import { useOnboarding } from '../context/OnboardingContext';
 
 // Build a simple calendar for date selection (current month + prev months)
 function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
@@ -116,6 +117,7 @@ function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
 export default function DiaryScreen({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { registerRef } = useOnboarding();
 
   const [entries, setEntries] = useState([]);
   const [selectedEntry, setSelectedEntry] = useState(null);
@@ -156,7 +158,7 @@ export default function DiaryScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <View ref={registerRef('diaryList')} collapsable={false} style={styles.container}>
       <FlatList
         data={entries}
         keyExtractor={item => String(item.id)}
