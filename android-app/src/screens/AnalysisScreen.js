@@ -1,13 +1,29 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getRecentEntries, getUser } from '../db/database';
 import { analyzeGeneral, analyzePsych, analyzeBalance } from '../services/ai';
 import { useColors } from '../ThemeContext';
 import MarkdownText from '../components/MarkdownText';
+
+function markdownToPlainText(text) {
+  return text.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (trimmed === '') return '';
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)/);
+    if (headingMatch) {
+      return headingMatch[2].replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').toUpperCase();
+    }
+    const bulletMatch = trimmed.match(/^[*\-•]\s+(.+)/);
+    if (bulletMatch) {
+      return '• ' + bulletMatch[1].replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+    }
+    return trimmed.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+  }).join('\n');
+}
 
 const ANALYSES = [
   { id: 'general7', title: 'Общий анализ (7 дней)', icon: 'analytics-outline', days: 7, type: 'general' },
@@ -81,6 +97,15 @@ export default function AnalysisScreen({ navigation }) {
           {results[analysis.id] && (
             <View style={styles.resultBox}>
               <MarkdownText text={results[analysis.id]} style={styles.resultText} />
+              <TouchableOpacity
+                style={styles.shareBtn}
+                onPress={() => Share.share({
+                  message: `${analysis.title}\n\n${markdownToPlainText(results[analysis.id])}`,
+                })}
+              >
+                <Ionicons name="share-outline" size={16} color={COLORS.primary} />
+                <Text style={[styles.shareBtnText, { color: COLORS.primary }]}>Поделиться</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -116,6 +141,13 @@ function createStyles(C) {
     runBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
     resultBox: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border },
     resultText: { fontSize: 14, color: C.text, lineHeight: 22 },
+    shareBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      marginTop: 14, alignSelf: 'flex-end',
+      paddingHorizontal: 14, paddingVertical: 7,
+      borderRadius: 10, borderWidth: 1, borderColor: C.primary,
+    },
+    shareBtnText: { fontSize: 13, fontWeight: '500' },
     infoCard: {
       flexDirection: 'row', alignItems: 'flex-start', gap: 10,
       backgroundColor: C.primaryLight, borderRadius: 12, padding: 14, marginTop: 4,
