@@ -32,16 +32,19 @@ export default function TasksScreen() {
 
   const todayStr = today();
 
-  // Split into sections
-  const futurePending = tasks.filter(t => t.plan_date > todayStr && t.status === 'pending');
-  const undatedPending = tasks.filter(t => t.plan_date === 'undated' && t.status === 'pending');
-  const history = tasks
-    .filter(t => t.status !== 'pending' || (t.plan_date !== 'undated' && t.plan_date < todayStr))
-    .sort((a, b) => {
-      if (a.plan_date === 'undated') return 1;
-      if (b.plan_date === 'undated') return -1;
-      return b.plan_date.localeCompare(a.plan_date);
-    });
+  // ── Active sections (pending tasks) ──────────────────────────────────────
+  const overduePending = tasks.filter(
+    t => t.status === 'pending' && t.plan_date !== 'undated' && t.plan_date < todayStr
+  );
+  const todayPending = tasks.filter(
+    t => t.status === 'pending' && t.plan_date === todayStr
+  );
+  const futurePending = tasks.filter(
+    t => t.status === 'pending' && t.plan_date !== 'undated' && t.plan_date > todayStr
+  );
+  const undatedPending = tasks.filter(
+    t => t.status === 'pending' && t.plan_date === 'undated'
+  );
 
   // Group future pending by date
   const futureGrouped = futurePending.reduce((acc, t) => {
@@ -51,7 +54,8 @@ export default function TasksScreen() {
   }, {});
   const futureDates = Object.keys(futureGrouped).sort();
 
-  // Group history by date
+  // ── History (completed / moved / cancelled) ───────────────────────────────
+  const history = tasks.filter(t => t.status !== 'pending');
   const historyGrouped = history.reduce((acc, t) => {
     const key = t.plan_date === 'undated' ? 'undated' : t.plan_date;
     if (!acc[key]) acc[key] = [];
@@ -149,7 +153,8 @@ export default function TasksScreen() {
     );
   };
 
-  const isEmpty = futurePending.length === 0 && undatedPending.length === 0;
+  const hasActiveTasks = overduePending.length > 0 || todayPending.length > 0
+    || futurePending.length > 0 || undatedPending.length > 0;
 
   return (
     <View style={styles.container}>
@@ -159,6 +164,29 @@ export default function TasksScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         renderItem={() => (
           <>
+            {/* Overdue tasks */}
+            {overduePending.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionHeader, styles.sectionHeaderOverdue]}>
+                  Просрочено ({overduePending.length})
+                </Text>
+                {overduePending.map(t => (
+                  <View key={t.id}>
+                    <Text style={styles.overdueDate}>{formatDateRelative(t.plan_date)}</Text>
+                    {renderTask(t, true)}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Today's tasks */}
+            {todayPending.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionHeader, styles.sectionHeaderToday]}>Сегодня</Text>
+                {todayPending.map(t => renderTask(t, true))}
+              </View>
+            )}
+
             {/* Future pending tasks */}
             {futureDates.length > 0 && (
               <View style={styles.section}>
@@ -186,7 +214,7 @@ export default function TasksScreen() {
             )}
 
             {/* Empty state */}
-            {isEmpty && history.length === 0 && (
+            {!hasActiveTasks && history.length === 0 && (
               <View style={styles.empty}>
                 <Ionicons name="calendar-outline" size={60} color={COLORS.textSecondary} />
                 <Text style={styles.emptyText}>Нет запланированных задач</Text>
@@ -295,6 +323,9 @@ function createStyles(C) {
       fontSize: 13, fontWeight: '700', color: C.textSecondary,
       textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
     },
+    sectionHeaderOverdue: { color: '#f44336' },
+    sectionHeaderToday: { color: C.primary },
+    overdueDate: { fontSize: 11, color: '#f44336', marginBottom: 2, paddingLeft: 2 },
     historySectionHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       marginBottom: 10,

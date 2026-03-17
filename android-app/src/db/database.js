@@ -158,24 +158,20 @@ export async function getPendingPlans() {
   );
 }
 
-// Returns all tasks for the planner tab EXCEPT today's pending tasks
-// (today's pending tasks are shown on the Home screen checklist)
 export async function getAllTasksForPlanner() {
   const db = await openDatabase();
-  const todayStr = new Date().toISOString().split('T')[0];
   return await db.getAllAsync(
     `SELECT * FROM plans WHERE user_id = 1
-     AND NOT (plan_date = ? AND status = 'pending')
      ORDER BY
        CASE WHEN plan_date = 'undated' THEN '9999-99-99' ELSE plan_date END ASC,
-       id ASC`,
-    [todayStr]
+       id ASC`
   );
 }
 
 export async function getOverduePlans() {
   const db = await openDatabase();
-  const today = new Date().toISOString().split('T')[0];
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return await db.getAllAsync(
     `SELECT * FROM plans WHERE user_id = 1 AND status = 'pending' AND plan_date < ?
      ORDER BY plan_date ASC`,
