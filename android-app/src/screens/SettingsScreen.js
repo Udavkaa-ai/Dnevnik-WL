@@ -371,7 +371,7 @@ export default function SettingsScreen() {
       {/* Credits */}
       <View style={{ alignItems: 'center', paddingVertical: 16 }}>
         <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 18 }}>
-          Сделано Удав Каа с помощью Claude
+          сделано Удавом Каа с помощью Claude
         </Text>
       </View>
     </ScrollView>
