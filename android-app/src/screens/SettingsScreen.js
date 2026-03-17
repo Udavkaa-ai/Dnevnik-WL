@@ -8,7 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { getUser, updateUser, exportDiary } from '../db/database';
+import * as DocumentPicker from 'expo-document-picker';
+import { getUser, updateUser, exportDiary, importDiary } from '../db/database';
 import { scheduleMorningReminder, scheduleEveningReminder, cancelAllReminders, requestPermissions } from '../services/notifications';
 import { useColors, useTheme } from '../ThemeContext';
 
@@ -81,6 +82,8 @@ export default function SettingsScreen() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [bio, setBio] = useState('');
 
   useFocusEffect(useCallback(() => { loadUser(); }, []));
 
@@ -89,6 +92,7 @@ export default function SettingsScreen() {
       const u = await getUser();
       setUser(u);
       setApiKey(u?.openrouter_key || '');
+      setBio(u?.bio || '');
       const stored = await AsyncStorage.getItem('notifications_enabled');
       if (stored === 'true') setNotificationsEnabled(true);
     } catch (e) {
@@ -133,6 +137,33 @@ export default function SettingsScreen() {
   const saveApiKey = async () => {
     await save({ openrouter_key: apiKey.trim() });
     Alert.alert('Сохранено', 'API ключ сохранён');
+  };
+
+  const saveBio = async () => {
+    await save({ bio: bio.trim() });
+    Alert.alert('Сохранено', 'Информация о себе сохранена');
+  };
+
+  const handleImport = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'text/plain',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      setImporting(true);
+      const fileUri = result.assets[0].uri;
+      const text = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+      const { imported, skipped, total } = await importDiary(text);
+      Alert.alert(
+        'Импорт завершён',
+        `Всего в файле: ${total}\nИмпортировано: ${imported}\nПропущено (уже есть): ${skipped}`
+      );
+    } catch (e) {
+      Alert.alert('Ошибка импорта', e.message);
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleExport = async () => {
@@ -240,6 +271,25 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          <View style={styles.divider} />
+          <Text style={styles.fieldLabel}>О себе</Text>
+          <TextInput
+            style={styles.bioInput}
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Напиши что-нибудь о себе — работа, интересы, цели... Это поможет AI лучше понять контекст"
+            placeholderTextColor={COLORS.textSecondary}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+          <TouchableOpacity
+            style={[styles.saveBtn, !bio.trim() && { opacity: 0.5 }]}
+            onPress={saveBio}
+            disabled={!bio.trim()}
+          >
+            <Text style={styles.saveBtnText}>Сохранить</Text>
+          </TouchableOpacity>
           <Text style={styles.fieldHint}>Используется для персонализации AI анализа</Text>
         </View>
       </View>
@@ -297,7 +347,32 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
           <Text style={styles.fieldHint}>Все записи будут сохранены как текстовый файл</Text>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={[styles.exportBtn, importing && { opacity: 0.6 }]}
+            onPress={handleImport}
+            disabled={importing}
+          >
+            {importing ? (
+              <ActivityIndicator color={COLORS.primary} size="small" />
+            ) : (
+              <Ionicons name="upload-outline" size={20} color={COLORS.primary} />
+            )}
+            <Text style={styles.exportBtnText}>
+              {importing ? 'Импортирую...' : 'Импортировать из .txt'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.fieldHint}>
+            Загрузи ранее экспортированный файл дневника. Существующие записи не будут перезаписаны.
+          </Text>
         </View>
+      </View>
+
+      {/* Credits */}
+      <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+        <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 18 }}>
+          Сделано Удав Каа с помощью Claude
+        </Text>
       </View>
     </ScrollView>
   );
@@ -349,5 +424,10 @@ function createStyles(C) {
       paddingVertical: 14, paddingHorizontal: 16,
     },
     exportBtnText: { fontSize: 15, color: C.primary, fontWeight: '500' },
+    bioInput: {
+      backgroundColor: C.background, borderRadius: 10,
+      padding: 12, fontSize: 14, color: C.text,
+      minHeight: 90, textAlignVertical: 'top',
+    },
   });
 }

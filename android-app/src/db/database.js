@@ -19,7 +19,8 @@ export async function openDatabase() {
           evening_time  TEXT DEFAULT '21:00',
           gender        TEXT,
           family_status TEXT,
-          openrouter_key TEXT
+          openrouter_key TEXT,
+          bio           TEXT
         );
 
         CREATE TABLE IF NOT EXISTS entries (
@@ -49,6 +50,10 @@ export async function openDatabase() {
         INSERT OR IGNORE INTO users (user_id, name, morning_time, evening_time)
         VALUES (1, 'Пользователь', '09:00', '21:00');
       `);
+      // Migration: add bio column if not exists (for existing DBs)
+      try {
+        await database.execAsync('ALTER TABLE users ADD COLUMN bio TEXT');
+      } catch (_) { /* column already exists */ }
       db = database;
       return db;
     })();
@@ -260,7 +265,105 @@ export async function getTaskStats(days = 7) {
   return row;
 }
 
-// ─── Export ──────────────────────────────────────────────────────────────────
+// ─── Export / Import ─────────────────────────────────────────────────────────
+
+export async function importDiary(text) {
+  // Parse the exported .txt format and restore entries
+  const lines = text.split('\n');
+  const entries = [];
+  let current = null;
+
+  const flush = () => {
+    if (current && current.date) entries.push(current);
+    current = null;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // New entry starts with 📅 followed by a date
+    const dateMatch = line.match(/📅\s+(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      flush();
+      current = { date: dateMatch[1], done: null, not_done: null, mood_score: null, ai_tip: null };
+      continue;
+    }
+
+    if (!current) continue;
+
+    // ✅ Сделал: ...
+    const doneMatch = line.match(/✅\s+Сделал:\s*(.*)/);
+    if (doneMatch) {
+      const val = doneMatch[1].trim();
+      current.done = (val === '—' || val === '') ? null : val;
+      continue;
+    }
+
+    // ❌ Не получилось: ...
+    const notDoneMatch = line.match(/❌\s+Не получилось:\s*(.*)/);
+    if (notDoneMatch) {
+      const val = notDoneMatch[1].trim();
+      current.not_done = (val === '—' || val === '') ? null : val;
+      continue;
+    }
+
+    // 🎯 Оценка дня: N/10
+    const moodMatch = line.match(/🎯\s+Оценка дня:\s*(\d+)\/10/);
+    if (moodMatch) {
+      current.mood_score = parseInt(moodMatch[1], 10);
+      continue;
+    }
+
+    // 💡 Совет: ...
+    const tipMatch = line.match(/💡\s+Совет:\s*(.*)/);
+    if (tipMatch) {
+      current.ai_tip = tipMatch[1].trim() || null;
+      continue;
+    }
+  }
+  flush();
+
+  if (entries.length === 0) {
+    throw new Error('Записи не найдены. Проверь формат файла.');
+  }
+
+  const db = await openDatabase();
+  let imported = 0;
+  let skipped = 0;
+
+  await db.execAsync('BEGIN');
+  try {
+    for (const e of entries) {
+      const fields = {};
+      if (e.done !== null) fields.done = e.done;
+      if (e.not_done !== null) fields.not_done = e.not_done;
+      if (e.mood_score !== null) fields.mood_score = e.mood_score;
+      if (e.ai_tip !== null) fields.ai_tip = e.ai_tip;
+
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM entries WHERE user_id = 1 AND date = ?', [e.date]
+      );
+      if (existing) {
+        skipped++;
+      } else {
+        const allFields = { user_id: 1, date: e.date, ...fields };
+        const keys = Object.keys(allFields);
+        const placeholders = keys.map(() => '?').join(', ');
+        await db.runAsync(
+          `INSERT INTO entries (${keys.join(', ')}) VALUES (${placeholders})`,
+          keys.map(k => allFields[k])
+        );
+        imported++;
+      }
+    }
+    await db.execAsync('COMMIT');
+  } catch (err) {
+    await db.execAsync('ROLLBACK');
+    throw err;
+  }
+
+  return { imported, skipped, total: entries.length };
+}
 
 export async function exportDiary() {
   const db = await openDatabase();
