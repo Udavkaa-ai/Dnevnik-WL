@@ -1,11 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
 import { getMoodData, getTaskStats } from '../db/database';
-import { COLORS } from '../theme';
+import { useColors } from '../ThemeContext';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -14,15 +14,25 @@ function avg(arr) {
   return (arr.reduce((s, n) => s + n, 0) / arr.length).toFixed(1);
 }
 
+function StatBox({ label, value, suffix = '', color, textColor }) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: '700', color: color || textColor }}>{value}{suffix}</Text>
+      <Text style={{ fontSize: 11, color: '#8e8e93', marginTop: 2 }}>{label}</Text>
+    </View>
+  );
+}
+
 export default function StatsScreen() {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+
   const [moodData, setMoodData] = useState([]);
   const [taskStats, setTaskStats] = useState(null);
   const [taskStats30, setTaskStats30] = useState(null);
   const [period, setPeriod] = useState(14);
 
-  useFocusEffect(useCallback(() => {
-    loadData();
-  }, [period]));
+  useFocusEffect(useCallback(() => { loadData(); }, [period]));
 
   const loadData = async () => {
     try {
@@ -31,7 +41,7 @@ export default function StatsScreen() {
         getTaskStats(7),
         getTaskStats(30),
       ]);
-      setMoodData(md.reverse()); // chronological order
+      setMoodData(md.reverse());
       setTaskStats(ts7);
       setTaskStats30(ts30);
     } catch (e) {
@@ -41,14 +51,11 @@ export default function StatsScreen() {
 
   const chartData = moodData.filter(d => d.mood_score != null);
   const hasChart = chartData.length >= 2;
-
   const scores = chartData.map(d => d.mood_score);
   const labels = chartData.map(d => {
     const parts = d.date.split('-');
     return `${parts[2]}.${parts[1]}`;
   });
-
-  // Show only every Nth label to avoid crowding
   const labelInterval = Math.ceil(labels.length / 6);
   const sparseLabels = labels.map((l, i) => i % labelInterval === 0 ? l : '');
 
@@ -59,8 +66,6 @@ export default function StatsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
-
-      {/* Period selector */}
       <View style={styles.periodSelector}>
         {[7, 14, 30].map(p => (
           <TouchableOpacity
@@ -75,7 +80,6 @@ export default function StatsScreen() {
         ))}
       </View>
 
-      {/* Mood chart */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>График настроения</Text>
         {hasChart ? (
@@ -98,30 +102,23 @@ export default function StatsScreen() {
                 color: (opacity = 1) => `rgba(108, 99, 255, ${opacity})`,
                 labelColor: () => COLORS.textSecondary,
                 style: { borderRadius: 16 },
-                propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
-                  stroke: COLORS.primary,
-                },
+                propsForDots: { r: '4', strokeWidth: '2', stroke: COLORS.primary },
               }}
               bezier
               style={{ marginVertical: 8, borderRadius: 16 }}
             />
             <View style={styles.statsRow}>
-              <StatBox label="Среднее" value={avg(scores)} suffix="/10" />
-              <StatBox label="Макс" value={Math.max(...scores)} suffix="/10" />
-              <StatBox label="Мин" value={Math.min(...scores)} suffix="/10" />
-              <StatBox label="Записей" value={scores.length} />
+              <StatBox label="Среднее" value={avg(scores)} suffix="/10" textColor={COLORS.text} />
+              <StatBox label="Макс" value={Math.max(...scores)} suffix="/10" textColor={COLORS.text} />
+              <StatBox label="Мин" value={Math.min(...scores)} suffix="/10" textColor={COLORS.text} />
+              <StatBox label="Записей" value={scores.length} textColor={COLORS.text} />
             </View>
           </>
         ) : (
-          <Text style={styles.noDataText}>
-            Нужно минимум 2 записи с оценкой дня для графика
-          </Text>
+          <Text style={styles.noDataText}>Нужно минимум 2 записи с оценкой дня для графика</Text>
         )}
       </View>
 
-      {/* Task completion */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Выполнение задач (7 дней)</Text>
         {taskStats && taskStats.total > 0 ? (
@@ -131,10 +128,10 @@ export default function StatsScreen() {
             </View>
             <Text style={styles.completionText}>{completionRate(taskStats)}% выполнено</Text>
             <View style={styles.statsRow}>
-              <StatBox label="Всего" value={taskStats.total} color={COLORS.text} />
-              <StatBox label="Выполнено" value={taskStats.done} color="#4caf50" />
-              <StatBox label="Перенесено" value={taskStats.moved} color="#ff9800" />
-              <StatBox label="Отменено" value={taskStats.cancelled} color="#f44336" />
+              <StatBox label="Всего" value={taskStats.total} textColor={COLORS.text} />
+              <StatBox label="Выполнено" value={taskStats.done} color="#4caf50" textColor={COLORS.text} />
+              <StatBox label="Перенесено" value={taskStats.moved} color="#ff9800" textColor={COLORS.text} />
+              <StatBox label="Отменено" value={taskStats.cancelled} color="#f44336" textColor={COLORS.text} />
             </View>
           </>
         ) : (
@@ -142,7 +139,6 @@ export default function StatsScreen() {
         )}
       </View>
 
-      {/* 30 day task stats */}
       {taskStats30 && taskStats30.total > 0 && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Выполнение задач (30 дней)</Text>
@@ -151,10 +147,10 @@ export default function StatsScreen() {
           </View>
           <Text style={styles.completionText}>{completionRate(taskStats30)}% выполнено</Text>
           <View style={styles.statsRow}>
-            <StatBox label="Всего" value={taskStats30.total} color={COLORS.text} />
-            <StatBox label="Выполнено" value={taskStats30.done} color="#4caf50" />
-            <StatBox label="Перенесено" value={taskStats30.moved} color="#ff9800" />
-            <StatBox label="Отменено" value={taskStats30.cancelled} color="#f44336" />
+            <StatBox label="Всего" value={taskStats30.total} textColor={COLORS.text} />
+            <StatBox label="Выполнено" value={taskStats30.done} color="#4caf50" textColor={COLORS.text} />
+            <StatBox label="Перенесено" value={taskStats30.moved} color="#ff9800" textColor={COLORS.text} />
+            <StatBox label="Отменено" value={taskStats30.cancelled} color="#f44336" textColor={COLORS.text} />
           </View>
         </View>
       )}
@@ -162,43 +158,23 @@ export default function StatsScreen() {
   );
 }
 
-function StatBox({ label, value, suffix = '', color }) {
-  return (
-    <View style={statStyles.box}>
-      <Text style={[statStyles.value, color && { color }]}>{value}{suffix}</Text>
-      <Text style={statStyles.label}>{label}</Text>
-    </View>
-  );
+function createStyles(C) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+    periodBtn: {
+      flex: 1, paddingVertical: 10, borderRadius: 10,
+      borderWidth: 1, borderColor: C.border, alignItems: 'center',
+    },
+    periodBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+    periodBtnText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
+    periodBtnTextActive: { color: '#fff' },
+    card: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12, elevation: 2 },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: C.text, marginBottom: 12 },
+    statsRow: { flexDirection: 'row', marginTop: 12 },
+    noDataText: { fontSize: 14, color: C.textSecondary, textAlign: 'center', paddingVertical: 20 },
+    completionBar: { height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden' },
+    completionFill: { height: '100%', backgroundColor: C.primary, borderRadius: 4 },
+    completionText: { fontSize: 13, color: C.textSecondary, marginTop: 6 },
+  });
 }
-
-const statStyles = StyleSheet.create({
-  box: { flex: 1, alignItems: 'center' },
-  value: { fontSize: 20, fontWeight: '700', color: COLORS.text },
-  label: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
-});
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  periodSelector: {
-    flexDirection: 'row', gap: 8, marginBottom: 16,
-  },
-  periodBtn: {
-    flex: 1, paddingVertical: 10, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
-  },
-  periodBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  periodBtnText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
-  periodBtnTextActive: { color: '#fff' },
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: 16,
-    padding: 16, marginBottom: 12, elevation: 2,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 },
-  statsRow: { flexDirection: 'row', marginTop: 12 },
-  noDataText: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 },
-  completionBar: {
-    height: 8, backgroundColor: COLORS.border, borderRadius: 4, overflow: 'hidden',
-  },
-  completionFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 4 },
-  completionText: { fontSize: 13, color: COLORS.textSecondary, marginTop: 6 },
-});
