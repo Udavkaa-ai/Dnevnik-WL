@@ -43,17 +43,40 @@ export async function openDatabase() {
           status       TEXT DEFAULT 'pending',
           reason       TEXT,
           moved_to     TEXT,
+          recurring_id INTEGER,
           checked_at   DATETIME,
           created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS recurring_plans (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id         INTEGER NOT NULL DEFAULT 1,
+          task_text       TEXT NOT NULL,
+          recurrence_type TEXT NOT NULL,
+          recurrence_day  INTEGER,
+          active          INTEGER DEFAULT 1,
+          created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
         INSERT OR IGNORE INTO users (user_id, name, morning_time, evening_time)
         VALUES (1, 'Пользователь', '09:00', '21:00');
       `);
-      // Migration: add bio column if not exists (for existing DBs)
+      // Migrations for existing DBs
+      try { await database.execAsync('ALTER TABLE users ADD COLUMN bio TEXT'); } catch (_) {}
+      try { await database.execAsync('ALTER TABLE plans ADD COLUMN recurring_id INTEGER'); } catch (_) {}
       try {
-        await database.execAsync('ALTER TABLE users ADD COLUMN bio TEXT');
-      } catch (_) { /* column already exists */ }
+        await database.execAsync(`
+          CREATE TABLE IF NOT EXISTS recurring_plans (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER NOT NULL DEFAULT 1,
+            task_text       TEXT NOT NULL,
+            recurrence_type TEXT NOT NULL,
+            recurrence_day  INTEGER,
+            active          INTEGER DEFAULT 1,
+            created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+      } catch (_) {}
       db = database;
       return db;
     })();
@@ -312,6 +335,96 @@ export async function exportDiary() {
   }
 
   return text;
+}
+
+// ─── Recurring tasks ──────────────────────────────────────────────────────────
+
+function _localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Returns the date string of the current/next occurrence for a recurring task.
+// daily   → today
+// weekly  → this week's target day (or next week if that day already passed this week... wait, actually: if today IS the day, return today; if day hasn't come yet this week, return it; if day already passed, return next week's)
+// Actually: always return the NEAREST upcoming date (today or future) for the given recurrence.
+function _recurringTargetDate(type, day) {
+  const now = new Date();
+  if (type === 'daily') return _localDateStr(now);
+
+  if (type === 'weekly') {
+    // day: 1=Mon..7=Sun → JS getDay: 0=Sun,1=Mon..6=Sat
+    const targetJs = day === 7 ? 0 : day;
+    const currentJs = now.getDay();
+    let diff = targetJs - currentJs;
+    if (diff < 0) diff += 7; // next week if already passed
+    const t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+    return _localDateStr(t);
+  }
+
+  if (type === 'monthly') {
+    const todayDay = now.getDate();
+    let m = now.getMonth(), y = now.getFullYear();
+    if (todayDay > day) { // this month's day already passed → next month
+      m += 1;
+      if (m > 11) { m = 0; y += 1; }
+    }
+    const maxDay = new Date(y, m + 1, 0).getDate();
+    const t = new Date(y, m, Math.min(day, maxDay));
+    return _localDateStr(t);
+  }
+  return null;
+}
+
+export async function getRecurringTasks() {
+  const db = await openDatabase();
+  return await db.getAllAsync(
+    'SELECT * FROM recurring_plans WHERE user_id = 1 ORDER BY id'
+  );
+}
+
+export async function addRecurringTask(taskText, recurrenceType, recurrenceDay) {
+  const db = await openDatabase();
+  const result = await db.runAsync(
+    'INSERT INTO recurring_plans (user_id, task_text, recurrence_type, recurrence_day) VALUES (1, ?, ?, ?)',
+    [taskText, recurrenceType, recurrenceDay ?? null]
+  );
+  return result.lastInsertRowId;
+}
+
+export async function updateRecurringTask(id, taskText, recurrenceType, recurrenceDay) {
+  const db = await openDatabase();
+  await db.runAsync(
+    'UPDATE recurring_plans SET task_text = ?, recurrence_type = ?, recurrence_day = ? WHERE id = ?',
+    [taskText, recurrenceType, recurrenceDay ?? null, id]
+  );
+}
+
+export async function deleteRecurringTask(id) {
+  const db = await openDatabase();
+  await db.runAsync('DELETE FROM recurring_plans WHERE id = ?', [id]);
+}
+
+// Creates plan instances for all active recurring tasks if they don't exist yet
+// for the current occurrence period.
+export async function materializeRecurringTasks() {
+  const db = await openDatabase();
+  const recurring = await db.getAllAsync(
+    'SELECT * FROM recurring_plans WHERE user_id = 1 AND active = 1'
+  );
+  for (const r of recurring) {
+    const targetDate = _recurringTargetDate(r.recurrence_type, r.recurrence_day);
+    if (!targetDate) continue;
+    const existing = await db.getFirstAsync(
+      'SELECT id FROM plans WHERE user_id = 1 AND recurring_id = ? AND plan_date = ?',
+      [r.id, targetDate]
+    );
+    if (!existing) {
+      await db.runAsync(
+        'INSERT INTO plans (user_id, plan_date, task_text, recurring_id) VALUES (1, ?, ?, ?)',
+        [targetDate, r.task_text, r.id]
+      );
+    }
+  }
 }
 
 export async function importDiary(text) {
