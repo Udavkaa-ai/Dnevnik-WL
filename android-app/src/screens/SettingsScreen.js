@@ -12,6 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { getUser, updateUser, exportDiary, importDiary } from '../db/database';
 import { scheduleMorningReminder, scheduleEveningReminder, cancelAllReminders, requestPermissions } from '../services/notifications';
 import { useColors, useTheme } from '../ThemeContext';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const GENDER_OPTIONS = [
   { value: 'male', label: 'Мужской' },
@@ -76,6 +77,7 @@ export default function SettingsScreen() {
   const COLORS = useColors();
   const { themePref, setThemePref } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { startTour } = useOnboarding();
 
   const [user, setUser] = useState(null);
   const [apiKey, setApiKey] = useState('');
@@ -366,6 +368,20 @@ export default function SettingsScreen() {
           <Text style={styles.fieldHint}>
             Загрузи ранее экспортированный файл. Добавляются только новые данные — существующие записи и задачи не перезаписываются.
           </Text>
+        </View>
+      </View>
+
+      {/* Onboarding tour */}
+      <View style={styles.section}>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.exportBtn}
+            onPress={startTour}
+          >
+            <Ionicons name="help-circle-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.exportBtnText}>Повторить обучение</Text>
+          </TouchableOpacity>
+          <Text style={styles.fieldHint}>Покажет как пользоваться приложением: задачи, дневник, статистика и AI анализ</Text>
         </View>
       </View>
 

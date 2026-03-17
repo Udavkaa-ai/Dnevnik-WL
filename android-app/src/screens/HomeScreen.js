@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert, Modal, Pressable, TextInput,
@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPlansForDate, getOverduePlans, updatePlanStatus, addPlan } from '../db/database';
 import { today, addDays, formatDate } from '../utils';
 import { useColors } from '../ThemeContext';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const DAILY_QUOTES = [
   { text: 'Ваш разум создан для идей, а не для их хранения. Записывайте всё, что требует внимания, в надёжную систему — тогда голова останется свободной для главного.', author: 'Дэвид Аллен' },
@@ -46,6 +47,7 @@ const DAILY_QUOTES = [
 export default function HomeScreen({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { registerRef } = useOnboarding();
 
   const [todayPlans, setTodayPlans] = useState([]);
   const [overduePlans, setOverduePlans] = useState([]);
@@ -138,6 +140,8 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.headerRow}>
           <Text style={styles.greeting}>Сегодня</Text>
           <TouchableOpacity
+            ref={registerRef('homeEntryBtn')}
+            collapsable={false}
             style={styles.diaryBtn}
             onPress={() => navigation.navigate('Entry', { date: todayStr })}
           >
@@ -155,7 +159,7 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       {/* Today's tasks */}
-      <View style={styles.card}>
+      <View ref={registerRef('homeTodayCard')} collapsable={false} style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Задачи на сегодня</Text>
           <View style={styles.cardHeaderRight}>
@@ -163,6 +167,8 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.taskCount}>{doneCount}/{todayPlans.length}</Text>
             )}
             <TouchableOpacity
+              ref={registerRef('homeAddTaskBtn')}
+              collapsable={false}
               style={styles.addBtn}
               onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
             >
@@ -217,7 +223,7 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {/* AI Analysis button */}
-      <TouchableOpacity style={styles.analysisCard} onPress={() => navigation.navigate('Analysis')}>
+      <TouchableOpacity ref={registerRef('homeAiCard')} collapsable={false} style={styles.analysisCard} onPress={() => navigation.navigate('Analysis')}>
         <View style={styles.analysisIcon}>
           <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
         </View>
