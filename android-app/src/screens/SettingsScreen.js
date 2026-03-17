@@ -154,11 +154,12 @@ export default function SettingsScreen() {
       setImporting(true);
       const fileUri = result.assets[0].uri;
       const text = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
-      const { imported, skipped, total } = await importDiary(text);
-      Alert.alert(
-        'Импорт завершён',
-        `Всего в файле: ${total}\nИмпортировано: ${imported}\nПропущено (уже есть): ${skipped}`
-      );
+      const { imported, skipped, total, tasksImported, tasksSkipped, tasksTotal } = await importDiary(text);
+      const entriesMsg = `Записи: ${imported} добавлено, ${skipped} пропущено (из ${total})`;
+      const tasksMsg = tasksTotal > 0
+        ? `\nЗадачи: ${tasksImported} добавлено, ${tasksSkipped} пропущено (из ${tasksTotal})`
+        : '';
+      Alert.alert('Импорт завершён', entriesMsg + tasksMsg);
     } catch (e) {
       Alert.alert('Ошибка импорта', e.message);
     } finally {
@@ -346,7 +347,7 @@ export default function SettingsScreen() {
               {exporting ? 'Экспортирую...' : 'Экспортировать дневник (.txt)'}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.fieldHint}>Все записи будут сохранены как текстовый файл</Text>
+          <Text style={styles.fieldHint}>Записи дневника и все задачи (с датами и статусами) будут сохранены в .txt файл</Text>
           <View style={styles.divider} />
           <TouchableOpacity
             style={[styles.exportBtn, importing && { opacity: 0.6 }]}
@@ -363,7 +364,7 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
           <Text style={styles.fieldHint}>
-            Загрузи ранее экспортированный файл дневника. Существующие записи не будут перезаписаны.
+            Загрузи ранее экспортированный файл. Добавляются только новые данные — существующие записи и задачи не перезаписываются.
           </Text>
         </View>
       </View>
