@@ -61,10 +61,10 @@ export const TOUR_STEPS = [
   {
     id: 'diary_screen',
     tab: 'Diary',
-    targetRef: 'diaryList',
+    targetRef: null,
     title: '📖 История записей',
     description: 'Здесь хранятся все записи дневника с оценками настроения. Нажми на запись, чтобы прочитать её полностью. Через календарь можно добавить запись за любой прошлый день.',
-    tooltipPosition: 'bottom',
+    tooltipPosition: 'center',
   },
   {
     id: 'stats_screen',

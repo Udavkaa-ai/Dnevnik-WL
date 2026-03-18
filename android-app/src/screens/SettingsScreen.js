@@ -156,12 +156,16 @@ export default function SettingsScreen() {
       setImporting(true);
       const fileUri = result.assets[0].uri;
       const text = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
-      const { imported, skipped, total, tasksImported, tasksSkipped, tasksTotal } = await importDiary(text);
-      const entriesMsg = `Записи: ${imported} добавлено, ${skipped} пропущено (из ${total})`;
-      const tasksMsg = tasksTotal > 0
-        ? `\nЗадачи: ${tasksImported} добавлено, ${tasksSkipped} пропущено (из ${tasksTotal})`
-        : '';
-      Alert.alert('Импорт завершён', entriesMsg + tasksMsg);
+      const result = await importDiary(text);
+      const parts = [];
+      parts.push(`Записи: ${result.imported} добавлено, ${result.skipped} пропущено (из ${result.total})`);
+      if (result.tasksTotal > 0)
+        parts.push(`Задачи: ${result.tasksImported} добавлено, ${result.tasksSkipped} пропущено (из ${result.tasksTotal})`);
+      if (result.recurringTotal > 0)
+        parts.push(`Повторяющиеся: ${result.recurringImported} добавлено, ${result.recurringSkipped} пропущено (из ${result.recurringTotal})`);
+      if (result.profileUpdated)
+        parts.push('Профиль: данные восстановлены');
+      Alert.alert('Импорт завершён', parts.join('\n'));
     } catch (e) {
       Alert.alert('Ошибка импорта', e.message);
     } finally {

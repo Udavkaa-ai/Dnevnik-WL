@@ -7,8 +7,8 @@ import { useOnboarding } from '../context/OnboardingContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  getAllTasksForPlanner, addPlan, updatePlanStatus, moveToUndated,
-  getRecurringTasks, addRecurringTask, updateRecurringTask,
+  getAllTasksForPlanner, addPlan, updatePlan, updatePlanStatus, moveToUndated,
+  deletePlan, getRecurringTasks, addRecurringTask, updateRecurringTask,
   deleteRecurringTask, materializeRecurringTasks,
 } from '../db/database';
 import { today, addDays, formatDate, formatDateRelative } from '../utils';
@@ -43,6 +43,15 @@ export default function TasksScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskDate, setNewTaskDate] = useState(addDays(today(), 1));
+
+  // ── Task action bottom-sheet ───────────────────────────────────────────────
+  const [actionTask, setActionTask] = useState(null);
+
+  // ── Edit task modal ────────────────────────────────────────────────────────
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editDate, setEditDate] = useState(today());
 
   // ── Add/edit recurring task modal ─────────────────────────────────────────
   const [recurringModalVisible, setRecurringModalVisible] = useState(false);
@@ -115,22 +124,22 @@ export default function TasksScreen() {
     loadAll();
   };
 
-  const handleTaskAction = (task) => {
-    const tomorrowStr = addDays(today(), 1);
-    const dateLabel = task.plan_date === 'undated' ? 'Без даты' : formatDateRelative(task.plan_date);
-    Alert.alert(task.task_text, dateLabel, [
-      { text: 'Отмена', style: 'cancel' },
-      { text: '✅ Выполнено', onPress: async () => { await updatePlanStatus(task.id, 'done'); loadAll(); } },
-      { text: '📅 На завтра', onPress: async () => { await updatePlanStatus(task.id, 'moved', { moved_to: tomorrowStr }); loadAll(); } },
-      { text: '📌 Без даты', onPress: async () => { await moveToUndated(task.id); loadAll(); } },
-      {
-        text: '🗑 Отменить задачу', style: 'destructive',
-        onPress: () => Alert.alert('Отменить задачу?', task.task_text, [
-          { text: 'Нет' },
-          { text: 'Да', style: 'destructive', onPress: async () => { await updatePlanStatus(task.id, 'cancelled'); loadAll(); } },
-        ]),
-      },
-    ]);
+  const handleTaskAction = (task) => setActionTask(task);
+
+  const handleEditTask = async () => {
+    if (!editText.trim() || !editingTaskId) return;
+    await updatePlan(editingTaskId, editText.trim(), editDate);
+    setEditModalVisible(false);
+    setEditingTaskId(null);
+    loadAll();
+  };
+
+  const openEditModal = (task) => {
+    setEditingTaskId(task.id);
+    setEditText(task.task_text);
+    setEditDate(task.plan_date);
+    setActionTask(null);
+    setEditModalVisible(true);
   };
 
   // Long-press on history item → restore to pending
@@ -380,6 +389,117 @@ export default function TasksScreen() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
+      {/* ── Task action bottom-sheet ──────────────────────────────────────── */}
+      <Modal
+        visible={actionTask !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActionTask(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setActionTask(null)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalTitleRow}>
+              <Text style={[styles.modalTitle, { flex: 1, marginBottom: 0 }]} numberOfLines={2}>
+                {actionTask?.task_text}
+              </Text>
+              <TouchableOpacity onPress={() => setActionTask(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.actionSubtitle}>
+              {actionTask?.plan_date === 'undated' ? '📌 Без даты' : formatDateRelative(actionTask?.plan_date ?? '')}
+            </Text>
+
+            <TouchableOpacity style={styles.actionRow} onPress={async () => {
+              await updatePlanStatus(actionTask.id, 'moved', { moved_to: addDays(today(), 1) });
+              setActionTask(null); loadAll();
+            }}>
+              <Ionicons name="calendar-outline" size={22} color={COLORS.text} />
+              <Text style={styles.actionText}>На завтра</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionRow} onPress={async () => {
+              await moveToUndated(actionTask.id);
+              setActionTask(null); loadAll();
+            }}>
+              <Ionicons name="bookmark-outline" size={22} color={COLORS.text} />
+              <Text style={styles.actionText}>Без даты</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionRow} onPress={() => openEditModal(actionTask)}>
+              <Ionicons name="pencil-outline" size={22} color={COLORS.text} />
+              <Text style={styles.actionText}>Изменить</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.actionRow, styles.actionRowDanger]} onPress={() => {
+              const t = actionTask;
+              setActionTask(null);
+              Alert.alert('Удалить задачу?', t.task_text, [
+                { text: 'Отмена', style: 'cancel' },
+                { text: 'Удалить', style: 'destructive', onPress: async () => { await deletePlan(t.id); loadAll(); } },
+              ]);
+            }}>
+              <Ionicons name="trash-outline" size={22} color="#f44336" />
+              <Text style={[styles.actionText, { color: '#f44336' }]}>Удалить</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Edit task modal ────────────────────────────────────────────────── */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalTitleRow}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Изменить задачу</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 16 }]}
+              placeholder="Текст задачи..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={editText}
+              onChangeText={setEditText}
+              autoFocus
+              multiline
+            />
+            <Text style={styles.modalLabel}>Дата:</Text>
+            <View style={styles.dateSelector}>
+              {[
+                { label: 'Сегодня', val: today() },
+                { label: 'Завтра', val: addDays(today(), 1) },
+                { label: 'Послезавтра', val: addDays(today(), 2) },
+                { label: 'Без даты', val: 'undated' },
+              ].map(({ label, val }) => (
+                <TouchableOpacity
+                  key={val}
+                  style={[styles.datePill, editDate === val && styles.datePillActive]}
+                  onPress={() => setEditDate(val)}
+                >
+                  <Text style={[styles.datePillText, editDate === val && styles.datePillTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={[styles.modalSaveBtn, !editText.trim() && { opacity: 0.5 }]}
+              onPress={handleEditTask}
+              disabled={!editText.trim()}
+            >
+              <Text style={styles.modalSaveBtnText}>Сохранить</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* ── Add one-off task modal ─────────────────────────────────────────── */}
       <Modal
         visible={addModalVisible}
@@ -576,7 +696,15 @@ function createStyles(C) {
       borderTopLeftRadius: 20, borderTopRightRadius: 20,
       padding: 24, paddingBottom: 40,
     },
+    modalTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 },
     modalTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 16 },
+    actionSubtitle: { fontSize: 13, color: C.textSecondary, marginBottom: 16 },
+    actionRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.border,
+    },
+    actionRowDanger: {},
+    actionText: { fontSize: 16, color: C.text },
     modalInput: {
       backgroundColor: C.background, borderRadius: 12, padding: 14,
       fontSize: 15, color: C.text, minHeight: 80, textAlignVertical: 'top', marginBottom: 16,
