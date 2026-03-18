@@ -268,6 +268,14 @@ export async function deletePlan(id) {
   await db.runAsync('DELETE FROM plans WHERE id = ?', [id]);
 }
 
+export async function updatePlan(id, taskText, planDate) {
+  const db = await openDatabase();
+  await db.runAsync(
+    'UPDATE plans SET task_text = ?, plan_date = ? WHERE id = ?',
+    [taskText, planDate, id]
+  );
+}
+
 // ─── Stats ───────────────────────────────────────────────────────────────────
 
 export async function getMoodData(days = 14) {
@@ -303,15 +311,32 @@ export async function getTaskStats(days = 7) {
 
 export async function exportDiary() {
   const db = await openDatabase();
+  const user = await db.getFirstAsync('SELECT * FROM users WHERE user_id = 1');
   const entries = await db.getAllAsync(
     'SELECT * FROM entries WHERE user_id = 1 ORDER BY date ASC'
   );
   const plans = await db.getAllAsync(
     'SELECT * FROM plans WHERE user_id = 1 ORDER BY plan_date ASC, id ASC'
   );
+  const recurring = await db.getAllAsync(
+    'SELECT * FROM recurring_plans WHERE user_id = 1 ORDER BY id ASC'
+  );
 
   let text = 'ЛИЧНЫЙ ДНЕВНИК\n';
   text += '═'.repeat(40) + '\n\n';
+
+  // ── Profile section ──
+  if (user) {
+    text += '━━━ ПРОФИЛЬ ━━━\n\n';
+    text += `👤 Имя: ${user.name || ''}\n`;
+    text += `⚧ Пол: ${user.gender || ''}\n`;
+    text += `👨‍👩‍👧 Семья: ${user.family_status || ''}\n`;
+    text += `🕐 Утро: ${user.morning_time || ''}\n`;
+    text += `🌙 Вечер: ${user.evening_time || ''}\n`;
+    text += `📝 О себе: ${user.bio || ''}\n`;
+    text += `🔑 OpenRouter: ${user.openrouter_key || ''}\n`;
+    text += '\n';
+  }
 
   // ── Entries section ──
   text += '━━━ ЗАПИСИ ━━━\n\n';
@@ -327,11 +352,21 @@ export async function exportDiary() {
   // ── Tasks section ──
   text += '━━━ ЗАДАЧИ ━━━\n\n';
   for (const p of plans) {
-    // Header line: 📋 <date> | <status> [| <moved_to>]
     let header = `📋 ${p.plan_date} | ${p.status}`;
     if (p.status === 'moved' && p.moved_to) header += ` | ${p.moved_to}`;
     text += header + '\n';
     text += p.task_text + '\n\n';
+  }
+
+  // ── Recurring section ──
+  if (recurring.length > 0) {
+    text += '━━━ ПОВТОРЯЮЩИЕСЯ ━━━\n\n';
+    for (const r of recurring) {
+      let header = `🔄 ${r.recurrence_type}`;
+      if (r.recurrence_day != null) header += ` | ${r.recurrence_day}`;
+      text += header + '\n';
+      text += r.task_text + '\n\n';
+    }
   }
 
   return text;
@@ -428,17 +463,16 @@ export async function materializeRecurringTasks() {
 }
 
 export async function importDiary(text) {
-  const lines = text.split('\n');
-
   // ── Split into sections ──
-  let entriesSection = text;
-  let tasksSection = '';
+  const profileSep = text.indexOf('━━━ ПРОФИЛЬ ━━━');
+  const entriesSep = text.indexOf('━━━ ЗАПИСИ ━━━');
+  const tasksSep   = text.indexOf('━━━ ЗАДАЧИ ━━━');
+  const recurringSep = text.indexOf('━━━ ПОВТОРЯЮЩИЕСЯ ━━━');
 
-  const tasksSep = text.indexOf('━━━ ЗАДАЧИ ━━━');
-  if (tasksSep !== -1) {
-    entriesSection = text.slice(0, tasksSep);
-    tasksSection = text.slice(tasksSep + '━━━ ЗАДАЧИ ━━━'.length);
-  }
+  const profileSection   = profileSep !== -1 ? text.slice(profileSep, entriesSep !== -1 ? entriesSep : undefined) : '';
+  let entriesSection     = entriesSep !== -1 ? text.slice(entriesSep, tasksSep !== -1 ? tasksSep : undefined) : text;
+  const tasksSection     = tasksSep !== -1   ? text.slice(tasksSep + '━━━ ЗАДАЧИ ━━━'.length, recurringSep !== -1 ? recurringSep : undefined) : '';
+  const recurringSection = recurringSep !== -1 ? text.slice(recurringSep + '━━━ ПОВТОРЯЮЩИЕСЯ ━━━'.length) : '';
 
   // ── Parse entries ──
   const entries = [];
@@ -516,7 +550,40 @@ export async function importDiary(text) {
     flushTask();
   }
 
-  if (entries.length === 0 && tasks.length === 0) {
+  // ── Parse profile ──
+  const profile = {};
+  if (profileSection) {
+    for (const line of profileSection.split('\n')) {
+      const nameM    = line.match(/👤\s+Имя:\s*(.*)/);       if (nameM    && nameM[1].trim())    profile.name           = nameM[1].trim();
+      const genderM  = line.match(/⚧\s+Пол:\s*(.*)/);        if (genderM  && genderM[1].trim())  profile.gender         = genderM[1].trim();
+      const familyM  = line.match(/👨‍👩‍👧\s+Семья:\s*(.*)/);     if (familyM  && familyM[1].trim())  profile.family_status  = familyM[1].trim();
+      const morningM = line.match(/🕐\s+Утро:\s*(.*)/);       if (morningM && morningM[1].trim()) profile.morning_time   = morningM[1].trim();
+      const eveningM = line.match(/🌙\s+Вечер:\s*(.*)/);      if (eveningM && eveningM[1].trim()) profile.evening_time   = eveningM[1].trim();
+      const bioM     = line.match(/📝\s+О себе:\s*(.*)/);     if (bioM     && bioM[1].trim())     profile.bio            = bioM[1].trim();
+      const keyM     = line.match(/🔑\s+OpenRouter:\s*(.*)/); if (keyM     && keyM[1].trim())     profile.openrouter_key = keyM[1].trim();
+    }
+  }
+
+  // ── Parse recurring tasks ──
+  const recurringTasks = [];
+  if (recurringSection) {
+    let curR = null;
+    const flushR = () => { if (curR && curR.task_text) recurringTasks.push(curR); curR = null; };
+    for (const line of recurringSection.split('\n')) {
+      const rMatch = line.match(/🔄\s+(\w+)(?:\s+\|\s+(\d+))?/);
+      if (rMatch) {
+        flushR();
+        curR = { recurrence_type: rMatch[1], recurrence_day: rMatch[2] ? parseInt(rMatch[2], 10) : null, task_text: null };
+        continue;
+      }
+      if (!curR) continue;
+      const t = line.trim();
+      if (t && !curR.task_text) curR.task_text = t;
+    }
+    flushR();
+  }
+
+  if (entries.length === 0 && tasks.length === 0 && recurringTasks.length === 0 && Object.keys(profile).length === 0) {
     throw new Error('Данные не найдены. Проверь формат файла.');
   }
 
@@ -525,6 +592,9 @@ export async function importDiary(text) {
   let skipped = 0;
   let tasksImported = 0;
   let tasksSkipped = 0;
+  let recurringImported = 0;
+  let recurringSkipped = 0;
+  let profileUpdated = false;
 
   await db.execAsync('BEGIN');
   try {
@@ -572,6 +642,40 @@ export async function importDiary(text) {
       }
     }
 
+    // Import recurring tasks — deduplicate by task_text + recurrence_type + recurrence_day
+    for (const r of recurringTasks) {
+      if (!r.task_text || !r.recurrence_type) continue;
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM recurring_plans WHERE user_id = 1 AND task_text = ? AND recurrence_type = ? AND recurrence_day IS ?',
+        [r.task_text, r.recurrence_type, r.recurrence_day]
+      );
+      if (existing) {
+        recurringSkipped++;
+      } else {
+        await db.runAsync(
+          'INSERT INTO recurring_plans (user_id, task_text, recurrence_type, recurrence_day) VALUES (1, ?, ?, ?)',
+          [r.task_text, r.recurrence_type, r.recurrence_day ?? null]
+        );
+        recurringImported++;
+      }
+    }
+
+    // Restore profile fields (only non-empty values that don't overwrite existing)
+    if (Object.keys(profile).length > 0) {
+      const currentUser = await db.getFirstAsync('SELECT * FROM users WHERE user_id = 1');
+      const toSet = {};
+      for (const [k, v] of Object.entries(profile)) {
+        if (v && (!currentUser[k] || currentUser[k] === '' || currentUser[k] === 'Пользователь')) {
+          toSet[k] = v;
+        }
+      }
+      if (Object.keys(toSet).length > 0) {
+        const sets = Object.keys(toSet).map(k => `${k} = ?`).join(', ');
+        await db.runAsync(`UPDATE users SET ${sets} WHERE user_id = 1`, Object.values(toSet));
+        profileUpdated = true;
+      }
+    }
+
     await db.execAsync('COMMIT');
   } catch (err) {
     await db.execAsync('ROLLBACK');
@@ -581,5 +685,7 @@ export async function importDiary(text) {
   return {
     imported, skipped, total: entries.length,
     tasksImported, tasksSkipped, tasksTotal: tasks.length,
+    recurringImported, recurringSkipped, recurringTotal: recurringTasks.length,
+    profileUpdated,
   };
 }
