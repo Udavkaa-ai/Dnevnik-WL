@@ -156,14 +156,14 @@ export default function SettingsScreen() {
       setImporting(true);
       const fileUri = result.assets[0].uri;
       const text = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
-      const result = await importDiary(text);
+      const importResult = await importDiary(text);
       const parts = [];
-      parts.push(`Записи: ${result.imported} добавлено, ${result.skipped} пропущено (из ${result.total})`);
-      if (result.tasksTotal > 0)
-        parts.push(`Задачи: ${result.tasksImported} добавлено, ${result.tasksSkipped} пропущено (из ${result.tasksTotal})`);
-      if (result.recurringTotal > 0)
-        parts.push(`Повторяющиеся: ${result.recurringImported} добавлено, ${result.recurringSkipped} пропущено (из ${result.recurringTotal})`);
-      if (result.profileUpdated)
+      parts.push(`Записи: ${importResult.imported} добавлено, ${importResult.skipped} пропущено (из ${importResult.total})`);
+      if (importResult.tasksTotal > 0)
+        parts.push(`Задачи: ${importResult.tasksImported} добавлено, ${importResult.tasksSkipped} пропущено (из ${importResult.tasksTotal})`);
+      if (importResult.recurringTotal > 0)
+        parts.push(`Повторяющиеся: ${importResult.recurringImported} добавлено, ${importResult.recurringSkipped} пропущено (из ${importResult.recurringTotal})`);
+      if (importResult.profileUpdated)
         parts.push('Профиль: данные восстановлены');
       Alert.alert('Импорт завершён', parts.join('\n'));
     } catch (e) {
