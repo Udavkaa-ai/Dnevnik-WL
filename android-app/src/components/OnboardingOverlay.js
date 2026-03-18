@@ -66,20 +66,30 @@ export default function OnboardingOverlay() {
 
   const hasHL = highlight !== null;
 
-  // Tooltip vertical position: below the highlight if there's room, otherwise above
+  // Tooltip vertical position: below the highlight if there's room, otherwise above.
+  // Always clamped to stay fully on screen.
   const getTooltipTop = () => {
+    const tooltipH = 240;
+    const minTop = 50;
+    const maxTop = SCREEN_H - tooltipH - 20;
+
     if (!hasHL || step.tooltipPosition === 'center') {
-      return SCREEN_H / 2 - 130;
+      return Math.max(minTop, SCREEN_H / 2 - tooltipH / 2);
     }
+
     const hl = highlight;
-    const tooltipH = 210;
     const margin = 14;
+
+    let preferred;
     if (step.tooltipPosition === 'top') {
-      const above = hl.y - tooltipH - margin;
-      return above > 60 ? above : hl.y + hl.height + margin;
+      preferred = hl.y - tooltipH - margin;
+      if (preferred < minTop) preferred = hl.y + hl.height + margin;
+    } else {
+      preferred = hl.y + hl.height + margin;
+      if (preferred > maxTop) preferred = hl.y - tooltipH - margin;
     }
-    const below = hl.y + hl.height + margin;
-    return below + tooltipH < SCREEN_H - 40 ? below : hl.y - tooltipH - margin;
+
+    return Math.max(minTop, Math.min(maxTop, preferred));
   };
 
   return (
