@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import { getUser, updateUser, exportDiary, importDiary, exportCalendarICS } from '../db/database';
+import { getUser, updateUser, exportDiary, importDiary, exportCalendarICS, importCalendarICS } from '../db/database';
 import { scheduleMorningReminder, scheduleEveningReminder, cancelAllReminders, requestPermissions } from '../services/notifications';
 import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -86,6 +86,7 @@ export default function SettingsScreen() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exportingCal, setExportingCal] = useState(false);
+  const [importingCal, setImportingCal] = useState(false);
   const [bio, setBio] = useState('');
 
   useFocusEffect(useCallback(() => { loadUser(); }, []));
@@ -145,6 +146,34 @@ export default function SettingsScreen() {
   const saveBio = async () => {
     await save({ bio: bio.trim() });
     Alert.alert('Сохранено', 'Информация о себе сохранена');
+  };
+
+  const handleImportCalendar = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/calendar', 'application/octet-stream', '*/*'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      setImportingCal(true);
+      const fileUri = result.assets[0].uri;
+      const text = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+      if (!text.includes('BEGIN:VCALENDAR') && !text.includes('BEGIN:VEVENT')) {
+        Alert.alert('Ошибка', 'Файл не является календарём (.ics). Проверь формат файла.');
+        return;
+      }
+      const r = await importCalendarICS(text);
+      const parts = [];
+      if (r.plansImported > 0) parts.push(`Задачи: ${r.plansImported} добавлено`);
+      if (r.recurringImported > 0) parts.push(`Повторяющиеся: ${r.recurringImported} добавлено`);
+      if (r.skipped > 0) parts.push(`Пропущено: ${r.skipped} (за пределами 3 дней или не поддерживаются)`);
+      if (parts.length === 0) parts.push('Нет новых событий для добавления');
+      Alert.alert('Импорт из календаря', parts.join('\n'));
+    } catch (e) {
+      Alert.alert('Ошибка импорта', e.message);
+    } finally {
+      setImportingCal(false);
+    }
   };
 
   const handleImport = async () => {
@@ -396,6 +425,26 @@ export default function SettingsScreen() {
           <Text style={styles.fieldHint}>
             Предстоящие задачи (90 дней) будут сохранены в формате iCalendar.{'\n'}
             Подходит для Google Calendar, Apple Calendar, Outlook и других.
+          </Text>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={[styles.exportBtn, importingCal && { opacity: 0.6 }]}
+            onPress={handleImportCalendar}
+            disabled={importingCal}
+          >
+            {importingCal ? (
+              <ActivityIndicator color={COLORS.primary} size="small" />
+            ) : (
+              <Ionicons name="calendar-number-outline" size={20} color={COLORS.primary} />
+            )}
+            <Text style={styles.exportBtnText}>
+              {importingCal ? 'Импортирую...' : 'Импортировать из .ics'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.fieldHint}>
+            Импортирует события из Google Calendar, Apple Calendar и других.{'\n'}
+            Только события на сегодня, завтра и послезавтра.{'\n'}
+            Повторяющиеся события добавляются как регулярные задачи.
           </Text>
           <View style={styles.divider} />
           <TouchableOpacity

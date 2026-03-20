@@ -43,6 +43,9 @@ export default function TasksScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskDate, setNewTaskDate] = useState(addDays(today(), 1));
+  const [newTaskShowTime, setNewTaskShowTime] = useState(false);
+  const [newTaskTimeStart, setNewTaskTimeStart] = useState('');
+  const [newTaskTimeEnd, setNewTaskTimeEnd] = useState('');
 
   // ── Task action bottom-sheet ───────────────────────────────────────────────
   const [actionTask, setActionTask] = useState(null);
@@ -52,6 +55,9 @@ export default function TasksScreen() {
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editText, setEditText] = useState('');
   const [editDate, setEditDate] = useState(today());
+  const [editShowTime, setEditShowTime] = useState(false);
+  const [editTimeStart, setEditTimeStart] = useState('');
+  const [editTimeEnd, setEditTimeEnd] = useState('');
 
   // ── Add/edit recurring task modal ─────────────────────────────────────────
   const [recurringModalVisible, setRecurringModalVisible] = useState(false);
@@ -117,9 +123,16 @@ export default function TasksScreen() {
   // ── Handlers: one-off tasks ────────────────────────────────────────────────
   const handleAddTask = async () => {
     if (!newTaskText.trim()) return;
-    await addPlan(newTaskDate, newTaskText.trim());
+    const timeStart = newTaskShowTime && /^\d{1,2}:\d{2}$/.test(newTaskTimeStart.trim())
+      ? newTaskTimeStart.trim() : null;
+    const timeEnd = newTaskShowTime && /^\d{1,2}:\d{2}$/.test(newTaskTimeEnd.trim())
+      ? newTaskTimeEnd.trim() : null;
+    await addPlan(newTaskDate, newTaskText.trim(), timeStart, timeEnd);
     setNewTaskText('');
     setNewTaskDate(addDays(today(), 1));
+    setNewTaskShowTime(false);
+    setNewTaskTimeStart('');
+    setNewTaskTimeEnd('');
     setAddModalVisible(false);
     loadAll();
   };
@@ -128,7 +141,11 @@ export default function TasksScreen() {
 
   const handleEditTask = async () => {
     if (!editText.trim() || !editingTaskId) return;
-    await updatePlan(editingTaskId, editText.trim(), editDate);
+    const timeStart = editShowTime && /^\d{1,2}:\d{2}$/.test(editTimeStart.trim())
+      ? editTimeStart.trim() : null;
+    const timeEnd = editShowTime && /^\d{1,2}:\d{2}$/.test(editTimeEnd.trim())
+      ? editTimeEnd.trim() : null;
+    await updatePlan(editingTaskId, editText.trim(), editDate, timeStart, timeEnd);
     setEditModalVisible(false);
     setEditingTaskId(null);
     loadAll();
@@ -138,6 +155,9 @@ export default function TasksScreen() {
     setEditingTaskId(task.id);
     setEditText(task.task_text);
     setEditDate(task.plan_date);
+    setEditTimeStart(task.time_start || '');
+    setEditTimeEnd(task.time_end || '');
+    setEditShowTime(!!task.time_start);
     setActionTask(null);
     setEditModalVisible(true);
   };
@@ -214,13 +234,20 @@ export default function TasksScreen() {
         onLongPress={isPending ? () => handleTaskAction(item) : () => handleHistoryAction(item)}
       >
         <Ionicons name={icon.name} size={20} color={icon.color} />
-        <Text style={[
-          styles.taskText,
-          item.status === 'done' && styles.taskDone,
-          item.status === 'cancelled' && styles.taskCancelled,
-        ]}>
-          {item.task_text}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[
+            styles.taskText,
+            item.status === 'done' && styles.taskDone,
+            item.status === 'cancelled' && styles.taskCancelled,
+          ]}>
+            {item.task_text}
+          </Text>
+          {!!item.time_start && (
+            <Text style={styles.timeLabel}>
+              {item.time_start}{item.time_end ? ` – ${item.time_end}` : ''}
+            </Text>
+          )}
+        </View>
         {!!item.recurring_id && (
           <Ionicons name="repeat" size={13} color={COLORS.textSecondary} />
         )}
@@ -490,6 +517,42 @@ export default function TasksScreen() {
               ))}
             </View>
             <TouchableOpacity
+              style={[styles.datePill, editShowTime && styles.datePillActive, { alignSelf: 'flex-start', marginBottom: 16 }]}
+              onPress={() => { setEditShowTime(v => !v); if (editShowTime) { setEditTimeStart(''); setEditTimeEnd(''); } }}
+            >
+              <Text style={[styles.datePillText, editShowTime && styles.datePillTextActive]}>
+                🕐 со временем
+              </Text>
+            </TouchableOpacity>
+            {editShowTime && (
+              <View style={styles.timeRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Начало</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    placeholder="09:00"
+                    placeholderTextColor={COLORS.textSecondary}
+                    value={editTimeStart}
+                    onChangeText={setEditTimeStart}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={5}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Конец</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    placeholder="10:00"
+                    placeholderTextColor={COLORS.textSecondary}
+                    value={editTimeEnd}
+                    onChangeText={setEditTimeEnd}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={5}
+                  />
+                </View>
+              </View>
+            )}
+            <TouchableOpacity
               style={[styles.modalSaveBtn, !editText.trim() && { opacity: 0.5 }]}
               onPress={handleEditTask}
               disabled={!editText.trim()}
@@ -538,6 +601,42 @@ export default function TasksScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            <TouchableOpacity
+              style={[styles.datePill, newTaskShowTime && styles.datePillActive, { alignSelf: 'flex-start', marginBottom: 16 }]}
+              onPress={() => { setNewTaskShowTime(v => !v); if (newTaskShowTime) { setNewTaskTimeStart(''); setNewTaskTimeEnd(''); } }}
+            >
+              <Text style={[styles.datePillText, newTaskShowTime && styles.datePillTextActive]}>
+                🕐 со временем
+              </Text>
+            </TouchableOpacity>
+            {newTaskShowTime && (
+              <View style={styles.timeRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Начало</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    placeholder="09:00"
+                    placeholderTextColor={COLORS.textSecondary}
+                    value={newTaskTimeStart}
+                    onChangeText={setNewTaskTimeStart}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={5}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Конец</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    placeholder="10:00"
+                    placeholderTextColor={COLORS.textSecondary}
+                    value={newTaskTimeEnd}
+                    onChangeText={setNewTaskTimeEnd}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={5}
+                  />
+                </View>
+              </View>
+            )}
             <TouchableOpacity
               style={[styles.modalSaveBtn, !newTaskText.trim() && { opacity: 0.5 }]}
               onPress={handleAddTask}
@@ -670,7 +769,8 @@ function createStyles(C) {
       padding: 14, marginBottom: 6, gap: 10, elevation: 1,
     },
     taskRowHistory: { opacity: 0.75 },
-    taskText: { flex: 1, fontSize: 15, color: C.text },
+    taskText: { fontSize: 15, color: C.text },
+    timeLabel: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
     taskDone: { textDecorationLine: 'line-through', color: C.textSecondary },
     taskCancelled: { textDecorationLine: 'line-through', color: C.textSecondary },
     movedLabel: { fontSize: 11, color: '#ff9800' },
@@ -720,5 +820,10 @@ function createStyles(C) {
     datePillTextActive: { color: '#fff', fontWeight: '600' },
     modalSaveBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
     modalSaveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+    timeRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+    timeInput: {
+      backgroundColor: C.background, borderRadius: 10, padding: 12,
+      fontSize: 16, color: C.text, textAlign: 'center',
+    },
   });
 }

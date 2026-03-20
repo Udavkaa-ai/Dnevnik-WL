@@ -64,6 +64,8 @@ export async function openDatabase() {
       // Migrations for existing DBs
       try { await database.execAsync('ALTER TABLE users ADD COLUMN bio TEXT'); } catch (_) {}
       try { await database.execAsync('ALTER TABLE plans ADD COLUMN recurring_id INTEGER'); } catch (_) {}
+      try { await database.execAsync('ALTER TABLE plans ADD COLUMN time_start TEXT'); } catch (_) {}
+      try { await database.execAsync('ALTER TABLE plans ADD COLUMN time_end TEXT'); } catch (_) {}
       try {
         await database.execAsync(`
           CREATE TABLE IF NOT EXISTS recurring_plans (
@@ -202,11 +204,11 @@ export async function getOverduePlans() {
   );
 }
 
-export async function addPlan(date, taskText) {
+export async function addPlan(date, taskText, timeStart = null, timeEnd = null) {
   const db = await openDatabase();
   const result = await db.runAsync(
-    'INSERT INTO plans (user_id, plan_date, task_text) VALUES (1, ?, ?)',
-    [date, taskText]
+    'INSERT INTO plans (user_id, plan_date, task_text, time_start, time_end) VALUES (1, ?, ?, ?, ?)',
+    [date, taskText, timeStart || null, timeEnd || null]
   );
   return result.lastInsertRowId;
 }
@@ -248,11 +250,11 @@ export async function updatePlanStatus(id, status, extra = {}) {
       `UPDATE plans SET status = 'moved', moved_to = ?, reason = ? WHERE id = ?`,
       [moved_to, reason || null, id]
     );
-    const plan = await db.getFirstAsync('SELECT task_text FROM plans WHERE id = ?', [id]);
+    const plan = await db.getFirstAsync('SELECT task_text, time_start, time_end FROM plans WHERE id = ?', [id]);
     if (plan) {
       await db.runAsync(
-        'INSERT INTO plans (user_id, plan_date, task_text) VALUES (1, ?, ?)',
-        [moved_to, plan.task_text]
+        'INSERT INTO plans (user_id, plan_date, task_text, time_start, time_end) VALUES (1, ?, ?, ?, ?)',
+        [moved_to, plan.task_text, plan.time_start, plan.time_end]
       );
     }
   } else if (status === 'cancelled') {
@@ -268,11 +270,11 @@ export async function deletePlan(id) {
   await db.runAsync('DELETE FROM plans WHERE id = ?', [id]);
 }
 
-export async function updatePlan(id, taskText, planDate) {
+export async function updatePlan(id, taskText, planDate, timeStart = null, timeEnd = null) {
   const db = await openDatabase();
   await db.runAsync(
-    'UPDATE plans SET task_text = ?, plan_date = ? WHERE id = ?',
-    [taskText, planDate, id]
+    'UPDATE plans SET task_text = ?, plan_date = ?, time_start = ?, time_end = ? WHERE id = ?',
+    [taskText, planDate, timeStart || null, timeEnd || null, id]
   );
 }
 
@@ -718,12 +720,43 @@ export async function exportCalendarICS(daysAhead = 90) {
   const escape = (s) => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 
   const events = plans.map(p => {
-    const dtstart = p.plan_date.replace(/-/g, '');
-    // DTEND for all-day events = next calendar day
     const [y, mo, d] = p.plan_date.split('-').map(Number);
+
+    if (p.time_start) {
+      // Timed event — floating local time (no Z = device local)
+      const toIcsTime = (hhmm) => {
+        const [h, m] = hhmm.split(':');
+        return `${p.plan_date.replace(/-/g, '')}T${String(h).padStart(2,'0')}${String(m).padStart(2,'0')}00`;
+      };
+      const dtstart = toIcsTime(p.time_start);
+      let dtend;
+      if (p.time_end) {
+        dtend = toIcsTime(p.time_end);
+      } else {
+        // Default duration: 1 hour
+        const [h, m] = p.time_start.split(':').map(Number);
+        const endDate = new Date(y, mo - 1, d, h + 1, m);
+        const endDateStr = _localDateStr(endDate).replace(/-/g, '');
+        const endH = String(endDate.getHours()).padStart(2, '0');
+        const endM = String(endDate.getMinutes()).padStart(2, '0');
+        dtend = `${endDateStr}T${endH}${endM}00`;
+      }
+      return [
+        'BEGIN:VEVENT',
+        `UID:dnevnik-task-${p.id}@app`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART:${dtstart}`,
+        `DTEND:${dtend}`,
+        `SUMMARY:${escape(p.task_text)}`,
+        'STATUS:CONFIRMED',
+        'END:VEVENT',
+      ].join('\r\n');
+    }
+
+    // All-day event
+    const dtstart = p.plan_date.replace(/-/g, '');
     const nextDay = new Date(y, mo - 1, d + 1);
     const dtend = _localDateStr(nextDay).replace(/-/g, '');
-
     return [
       'BEGIN:VEVENT',
       `UID:dnevnik-task-${p.id}@app`,
@@ -749,6 +782,214 @@ export async function exportCalendarICS(daysAhead = 90) {
   ].join('\r\n') + '\r\n';
 
   return { ics, count: plans.length };
+}
+
+// ─── Calendar ICS Import ──────────────────────────────────────────────────────
+
+// Imports events from .ics text into plans/recurring_plans.
+// Filtering rules:
+//   - Non-recurring: only events starting today, tomorrow, or day-after-tomorrow
+//   - Recurring: imported as recurring_plans (materialized by materializeRecurringTasks)
+//   - Multi-day events: imported as single task on start day with "(до DD.MM)" suffix
+//   - Simple RRULE (daily / single weekday / single monthday) → recurring_plans
+//   - Complex RRULE (multi-day-of-week) → one recurring_plans per weekday
+//   - Unsupported RRULE (yearly, ordinal weekday, etc.) → skipped
+export async function importCalendarICS(text) {
+  // Unfold long lines (RFC 5545: CRLF + space/tab continues previous line)
+  const unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+  const lines = unfolded.split(/\r?\n/);
+
+  // ── Parse VEVENT blocks ──────────────────────────────────────────────────
+  const events = [];
+  let cur = null;
+  for (const line of lines) {
+    const t = line.trim();
+    if (t === 'BEGIN:VEVENT') { cur = {}; continue; }
+    if (t === 'END:VEVENT')   { if (cur) events.push(cur); cur = null; continue; }
+    if (!cur) continue;
+    const colonIdx = line.indexOf(':');
+    if (colonIdx === -1) continue;
+    const rawName = line.slice(0, colonIdx);
+    const value   = line.slice(colonIdx + 1).trim();
+    const parts   = rawName.split(';');
+    const name    = parts[0].toUpperCase();
+    if (cur[name]) continue; // keep first occurrence only
+    const params  = {};
+    for (const p of parts.slice(1)) {
+      const eq = p.indexOf('=');
+      if (eq !== -1) params[p.slice(0, eq).toUpperCase()] = p.slice(eq + 1);
+    }
+    cur[name] = { value, params };
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const pad2 = (n) => String(n).padStart(2, '0');
+
+  const parseDT = (prop) => {
+    if (!prop) return null;
+    const { value, params } = prop;
+    const isAllDay = params.VALUE === 'DATE' || value.length === 8;
+    const isUTC    = value.endsWith('Z');
+    const raw      = value.replace('Z', '');
+
+    const y  = parseInt(raw.slice(0, 4), 10);
+    const mo = parseInt(raw.slice(4, 6), 10) - 1;
+    const d  = parseInt(raw.slice(6, 8), 10);
+
+    if (isAllDay) {
+      return { dateObj: new Date(y, mo, d), time: null };
+    }
+
+    const h   = parseInt(raw.slice(9, 11), 10)  || 0;
+    const min = parseInt(raw.slice(11, 13), 10) || 0;
+    const full = isUTC
+      ? new Date(Date.UTC(y, mo, d, h, min, 0))
+      : new Date(y, mo, d, h, min, 0);
+
+    return {
+      dateObj: new Date(full.getFullYear(), full.getMonth(), full.getDate()),
+      time: `${pad2(full.getHours())}:${pad2(full.getMinutes())}`,
+    };
+  };
+
+  const unescape = (s) => (s || '')
+    .replace(/\\n/g, ' ')
+    .replace(/\\,/g, ',')
+    .replace(/\\;/g, ';')
+    .replace(/\\\\/g, '\\')
+    .trim();
+
+  // 3-day window: today … day-after-tomorrow
+  const now = new Date();
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const maxDate    = new Date(todayLocal);
+  maxDate.setDate(maxDate.getDate() + 2);
+
+  const BYDAY_MAP = { MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6, SU: 7 };
+
+  // ── Process events ───────────────────────────────────────────────────────
+  let plansImported = 0;
+  let recurringImported = 0;
+  let skipped = 0;
+
+  const db = await openDatabase();
+  await db.execAsync('BEGIN');
+  try {
+    for (const ev of events) {
+      const summary = unescape(ev.SUMMARY?.value);
+      if (!summary) { skipped++; continue; }
+
+      const dtstart = parseDT(ev.DTSTART);
+      if (!dtstart) { skipped++; continue; }
+
+      // ── Recurring ────────────────────────────────────────────────────────
+      if (ev.RRULE) {
+        const rule = {};
+        for (const p of ev.RRULE.value.split(';')) {
+          const eq = p.indexOf('=');
+          if (eq !== -1) rule[p.slice(0, eq)] = p.slice(eq + 1);
+        }
+        const { FREQ, BYDAY, BYMONTHDAY, BYYEARDAY, BYWEEKNO, BYSETPOS } = rule;
+
+        // Skip unsupported frequencies / modifiers
+        if (!FREQ || BYYEARDAY || BYWEEKNO || BYSETPOS ||
+            FREQ === 'YEARLY' || FREQ === 'HOURLY' || FREQ === 'MINUTELY' || FREQ === 'SECONDLY') {
+          skipped++;
+          continue;
+        }
+
+        const taskText = dtstart.time ? `${summary} (${dtstart.time})` : summary;
+        let entries = [];
+
+        if (FREQ === 'DAILY' && !BYDAY) {
+          entries = [{ recurrence_type: 'daily', recurrence_day: null }];
+
+        } else if (FREQ === 'WEEKLY' && BYDAY) {
+          const days = BYDAY.split(',')
+            .map(s => {
+              const t = s.trim().toUpperCase();
+              if (/^\d/.test(t)) return null; // ordinal weekday like 2MO → skip
+              return BYDAY_MAP[t.slice(-2)];
+            })
+            .filter(Boolean);
+          if (days.length === 0) { skipped++; continue; }
+          entries = days.map(day => ({ recurrence_type: 'weekly', recurrence_day: day }));
+
+        } else if (FREQ === 'MONTHLY' && BYMONTHDAY) {
+          const days = BYMONTHDAY.split(',')
+            .map(s => parseInt(s.trim(), 10))
+            .filter(n => n >= 1 && n <= 31);
+          if (days.length === 0) { skipped++; continue; }
+          entries = days.map(day => ({ recurrence_type: 'monthly', recurrence_day: day }));
+
+        } else {
+          skipped++;
+          continue;
+        }
+
+        for (const entry of entries) {
+          const existing = await db.getFirstAsync(
+            'SELECT id FROM recurring_plans WHERE user_id = 1 AND task_text = ? AND recurrence_type = ? AND recurrence_day IS ?',
+            [taskText, entry.recurrence_type, entry.recurrence_day ?? null]
+          );
+          if (!existing) {
+            await db.runAsync(
+              'INSERT INTO recurring_plans (user_id, task_text, recurrence_type, recurrence_day) VALUES (1, ?, ?, ?)',
+              [taskText, entry.recurrence_type, entry.recurrence_day ?? null]
+            );
+            recurringImported++;
+          }
+        }
+        continue;
+      }
+
+      // ── Non-recurring: check 3-day window ───────────────────────────────
+      if (dtstart.dateObj < todayLocal || dtstart.dateObj > maxDate) {
+        skipped++;
+        continue;
+      }
+
+      // Multi-day detection
+      let taskText = summary;
+      const dtend = parseDT(ev.DTEND);
+      if (dtend) {
+        const diffDays = Math.round((dtend.dateObj - dtstart.dateObj) / 86400000);
+        const isEndAllDay = !ev.DTEND?.value.includes('T');
+        // For all-day events DTEND is exclusive, so diffDays > 1 = multi-day
+        // For timed events diffDays >= 2 = truly multi-day (> 1 day boundary crossed)
+        const multiDayThreshold = isEndAllDay ? 1 : 2;
+        if (diffDays >= multiDayThreshold) {
+          const effectiveEnd = isEndAllDay
+            ? new Date(dtend.dateObj.getTime() - 86400000)
+            : dtend.dateObj;
+          taskText = `${summary} (до ${pad2(effectiveEnd.getDate())}.${pad2(effectiveEnd.getMonth() + 1)})`;
+        }
+      }
+
+      const planDate  = _localDateStr(dtstart.dateObj);
+      const timeStart = dtstart.time || null;
+      const timeEnd   = (dtend?.time && dtend.time !== dtstart.time) ? dtend.time : null;
+
+      const existing = await db.getFirstAsync(
+        "SELECT id FROM plans WHERE user_id = 1 AND task_text = ? AND plan_date = ? AND status = 'pending'",
+        [taskText, planDate]
+      );
+      if (!existing) {
+        await db.runAsync(
+          'INSERT INTO plans (user_id, plan_date, task_text, time_start, time_end) VALUES (1, ?, ?, ?, ?)',
+          [planDate, taskText, timeStart, timeEnd]
+        );
+        plansImported++;
+      }
+    }
+
+    await db.execAsync('COMMIT');
+  } catch (err) {
+    await db.execAsync('ROLLBACK');
+    throw err;
+  }
+
+  return { plansImported, recurringImported, skipped, total: events.length };
 }
 
 function _icsDateTimeNow() {
