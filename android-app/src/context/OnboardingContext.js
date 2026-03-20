@@ -75,6 +75,14 @@ export const TOUR_STEPS = [
     tooltipPosition: 'bottom',
   },
   {
+    id: 'calendar_sync',
+    tab: null,
+    targetRef: null,
+    title: '📅 Синхронизация с календарём',
+    description: 'При добавлении задачи нажми «🕐 со временем», чтобы указать время начала и конца.\n\nВ настройках (⚙️) в разделе «Данные»:\n• Экспорт в .ics — выгружает задачи в Google Calendar, Apple Calendar и другие\n• Импорт из .ics — добавляет события из календаря на ближайшие 3 дня\n• Создать бэкап / Восстановить данные — полная копия со всеми задачами и записями',
+    tooltipPosition: 'center',
+  },
+  {
     id: 'done',
     tab: null,
     targetRef: null,
