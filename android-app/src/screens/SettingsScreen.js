@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import { getUser, updateUser, exportDiary, importDiary } from '../db/database';
+import { getUser, updateUser, exportDiary, importDiary, exportCalendarICS } from '../db/database';
 import { scheduleMorningReminder, scheduleEveningReminder, cancelAllReminders, requestPermissions } from '../services/notifications';
 import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -85,6 +85,7 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [exportingCal, setExportingCal] = useState(false);
   const [bio, setBio] = useState('');
 
   useFocusEffect(useCallback(() => { loadUser(); }, []));
@@ -170,6 +171,29 @@ export default function SettingsScreen() {
       Alert.alert('Ошибка импорта', e.message);
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleExportCalendar = async () => {
+    setExportingCal(true);
+    try {
+      const { ics, count } = await exportCalendarICS(90);
+      if (count === 0) {
+        Alert.alert('Нет задач', 'Нет предстоящих задач с датами для экспорта.');
+        return;
+      }
+      const fileName = `tasks_${new Date().toISOString().split('T')[0]}.ics`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      await FileSystem.writeAsStringAsync(fileUri, ics, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/calendar', dialogTitle: 'Экспорт задач в календарь' });
+      } else {
+        Alert.alert('Файл сохранён', `${count} задач(и) сохранено в ${fileUri}`);
+      }
+    } catch (e) {
+      Alert.alert('Ошибка экспорта', e.message);
+    } finally {
+      setExportingCal(false);
     }
   };
 
@@ -354,6 +378,25 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
           <Text style={styles.fieldHint}>Записи дневника и все задачи (с датами и статусами) будут сохранены в .txt файл</Text>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={[styles.exportBtn, exportingCal && { opacity: 0.6 }]}
+            onPress={handleExportCalendar}
+            disabled={exportingCal}
+          >
+            {exportingCal ? (
+              <ActivityIndicator color={COLORS.primary} size="small" />
+            ) : (
+              <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+            )}
+            <Text style={styles.exportBtnText}>
+              {exportingCal ? 'Экспортирую...' : 'Экспорт задач в календарь (.ics)'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.fieldHint}>
+            Предстоящие задачи (90 дней) будут сохранены в формате iCalendar.{'\n'}
+            Подходит для Google Calendar, Apple Calendar, Outlook и других.
+          </Text>
           <View style={styles.divider} />
           <TouchableOpacity
             style={[styles.exportBtn, importing && { opacity: 0.6 }]}

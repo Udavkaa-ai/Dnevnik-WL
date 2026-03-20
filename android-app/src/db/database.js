@@ -689,3 +689,70 @@ export async function importDiary(text) {
     profileUpdated,
   };
 }
+
+// ─── Calendar ICS Export ──────────────────────────────────────────────────────
+
+// Exports pending tasks (with dates) as iCalendar (.ics) format.
+// daysAhead: how many days into the future to include (default 90).
+// Pass daysAhead = -1 to export all future pending tasks with no limit.
+export async function exportCalendarICS(daysAhead = 90) {
+  const db = await openDatabase();
+
+  const today = new Date();
+  const todayStr = _localDateStr(today);
+
+  let query = `SELECT * FROM plans WHERE user_id = 1 AND status = 'pending' AND plan_date != 'undated' AND plan_date >= ? ORDER BY plan_date ASC, id ASC`;
+  const params = [todayStr];
+
+  if (daysAhead >= 0) {
+    const limit = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysAhead);
+    const limitStr = _localDateStr(limit);
+    query = `SELECT * FROM plans WHERE user_id = 1 AND status = 'pending' AND plan_date != 'undated' AND plan_date >= ? AND plan_date <= ? ORDER BY plan_date ASC, id ASC`;
+    params.push(limitStr);
+  }
+
+  const plans = await db.getAllAsync(query, params);
+
+  const dtstamp = _icsDateTimeNow();
+
+  const escape = (s) => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+
+  const events = plans.map(p => {
+    const dtstart = p.plan_date.replace(/-/g, '');
+    // DTEND for all-day events = next calendar day
+    const [y, mo, d] = p.plan_date.split('-').map(Number);
+    const nextDay = new Date(y, mo - 1, d + 1);
+    const dtend = _localDateStr(nextDay).replace(/-/g, '');
+
+    return [
+      'BEGIN:VEVENT',
+      `UID:dnevnik-task-${p.id}@app`,
+      `DTSTAMP:${dtstamp}`,
+      `DTSTART;VALUE=DATE:${dtstart}`,
+      `DTEND;VALUE=DATE:${dtend}`,
+      `SUMMARY:${escape(p.task_text)}`,
+      'STATUS:CONFIRMED',
+      'TRANSP:TRANSPARENT',
+      'END:VEVENT',
+    ].join('\r\n');
+  });
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Дневник//RU',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:Мои задачи',
+    ...events,
+    'END:VCALENDAR',
+  ].join('\r\n') + '\r\n';
+
+  return { ics, count: plans.length };
+}
+
+function _icsDateTimeNow() {
+  const n = new Date();
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${n.getUTCFullYear()}${pad(n.getUTCMonth() + 1)}${pad(n.getUTCDate())}T${pad(n.getUTCHours())}${pad(n.getUTCMinutes())}${pad(n.getUTCSeconds())}Z`;
+}
