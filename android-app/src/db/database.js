@@ -357,6 +357,7 @@ export async function exportDiary() {
     let header = `📋 ${p.plan_date} | ${p.status}`;
     if (p.status === 'moved' && p.moved_to) header += ` | ${p.moved_to}`;
     text += header + '\n';
+    if (p.time_start) text += `🕐 ${p.time_start}${p.time_end ? ' – ' + p.time_end : ''}\n`;
     text += p.task_text + '\n\n';
   }
 
@@ -540,10 +541,19 @@ export async function importDiary(text) {
           status: taskHeaderMatch[2],
           moved_to: taskHeaderMatch[3] || null,
           task_text: null,
+          time_start: null,
+          time_end: null,
         };
         continue;
       }
       if (!currentTask) continue;
+      // 🕐 HH:MM [– HH:MM]
+      const timeMatch = line.match(/🕐\s+(\d{1,2}:\d{2})(?:\s+–\s+(\d{1,2}:\d{2}))?/);
+      if (timeMatch) {
+        currentTask.time_start = timeMatch[1];
+        currentTask.time_end   = timeMatch[2] || null;
+        continue;
+      }
       const trimmed = line.trim();
       if (trimmed && !currentTask.task_text) {
         currentTask.task_text = trimmed;
@@ -634,7 +644,9 @@ export async function importDiary(text) {
         tasksSkipped++;
       } else {
         const fields = { user_id: 1, plan_date: t.plan_date, task_text: t.task_text, status: t.status };
-        if (t.moved_to) fields.moved_to = t.moved_to;
+        if (t.moved_to)   fields.moved_to   = t.moved_to;
+        if (t.time_start) fields.time_start  = t.time_start;
+        if (t.time_end)   fields.time_end    = t.time_end;
         const keys = Object.keys(fields);
         await db.runAsync(
           `INSERT INTO plans (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,

@@ -400,13 +400,13 @@ export default function SettingsScreen() {
             {exporting ? (
               <ActivityIndicator color={COLORS.primary} size="small" />
             ) : (
-              <Ionicons name="download-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="archive-outline" size={20} color={COLORS.primary} />
             )}
             <Text style={styles.exportBtnText}>
-              {exporting ? 'Экспортирую...' : 'Экспортировать дневник (.txt)'}
+              {exporting ? 'Сохраняю...' : 'Создать бэкап'}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.fieldHint}>Записи дневника и все задачи (с датами и статусами) будут сохранены в .txt файл</Text>
+          <Text style={styles.fieldHint}>Сохраняет всё: записи дневника, задачи (с датой, временем, статусом), повторяющиеся задачи и профиль.</Text>
           <View style={styles.divider} />
           <TouchableOpacity
             style={[styles.exportBtn, exportingCal && { opacity: 0.6 }]}
@@ -455,14 +455,14 @@ export default function SettingsScreen() {
             {importing ? (
               <ActivityIndicator color={COLORS.primary} size="small" />
             ) : (
-              <Ionicons name="upload-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="refresh-outline" size={20} color={COLORS.primary} />
             )}
             <Text style={styles.exportBtnText}>
-              {importing ? 'Импортирую...' : 'Импортировать из .txt'}
+              {importing ? 'Восстанавливаю...' : 'Восстановить данные'}
             </Text>
           </TouchableOpacity>
           <Text style={styles.fieldHint}>
-            Загрузи ранее экспортированный файл. Добавляются только новые данные — существующие записи и задачи не перезаписываются.
+            Загрузи ранее созданный бэкап. Добавляются только новые данные — существующие записи не перезаписываются.
           </Text>
         </View>
       </View>
