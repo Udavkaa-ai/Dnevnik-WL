@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Alert, Modal, Pressable, TextInput,
+  RefreshControl, Alert, Modal, Pressable, TextInput, Animated,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +44,63 @@ const DAILY_QUOTES = [
   { text: 'В конце каждого дня честно спрашивайте себя: «Я потратил время на то, что важно, или только казался занятым?» Разница между активностью и продуктивностью — ключевой вопрос каждого дня.', author: 'Принцип честного итога' },
 ];
 
+// Lightweight wrapper that fades + slides in from below
+function FadeSlideIn({ anim, children }) {
+  return (
+    <Animated.View
+      style={{
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+// TextInput styled as a ruled notebook page
+function RuledInput({ value, onChangeText, placeholder, placeholderTextColor, autoFocus, onFocus, onBlur, focused, colors }) {
+  const LINE_H = 28;
+  const lineCount = 5;
+  return (
+    <View style={{ minHeight: LINE_H * lineCount, marginBottom: 16 }}>
+      {Array.from({ length: lineCount }).map((_, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: (i + 1) * LINE_H - 1,
+            height: 1,
+            backgroundColor: focused ? colors.primary + '66' : colors.notebookLine,
+          }}
+        />
+      ))}
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={placeholderTextColor}
+        autoFocus={autoFocus}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        multiline
+        style={{
+          minHeight: LINE_H * lineCount,
+          fontSize: 15,
+          lineHeight: LINE_H,
+          color: colors.text,
+          textAlignVertical: 'top',
+          padding: 4,
+          paddingTop: 4,
+          backgroundColor: 'transparent',
+        }}
+      />
+    </View>
+  );
+}
+
 export default function HomeScreen({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
@@ -55,10 +112,29 @@ export default function HomeScreen({ navigation }) {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskDate, setNewTaskDate] = useState(today());
+  const [inputFocused, setInputFocused] = useState(false);
+
+  // Staggered entrance animations
+  const anim0 = useRef(new Animated.Value(0)).current; // header
+  const anim1 = useRef(new Animated.Value(0)).current; // quote
+  const anim2 = useRef(new Animated.Value(0)).current; // tasks
+  const anim3 = useRef(new Animated.Value(0)).current; // overdue
+  const anim4 = useRef(new Animated.Value(0)).current; // ai
 
   const todayStr = today();
   const dayOfMonth = new Date().getDate();
   const quote = DAILY_QUOTES[dayOfMonth - 1];
+
+  const playEntrance = () => {
+    [anim0, anim1, anim2, anim3, anim4].forEach(a => a.setValue(0));
+    Animated.stagger(70, [
+      Animated.spring(anim0, { toValue: 1, useNativeDriver: true, tension: 65, friction: 9 }),
+      Animated.spring(anim1, { toValue: 1, useNativeDriver: true, tension: 65, friction: 9 }),
+      Animated.spring(anim2, { toValue: 1, useNativeDriver: true, tension: 65, friction: 9 }),
+      Animated.spring(anim3, { toValue: 1, useNativeDriver: true, tension: 65, friction: 9 }),
+      Animated.spring(anim4, { toValue: 1, useNativeDriver: true, tension: 65, friction: 9 }),
+    ]).start();
+  };
 
   const load = async () => {
     try {
@@ -73,7 +149,7 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); playEntrance(); }, []));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -135,104 +211,139 @@ export default function HomeScreen({ navigation }) {
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
     >
-      <View style={styles.header}>
-        <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
-        <View style={styles.headerRow}>
-          <Text style={styles.greeting}>Сегодня</Text>
-          <TouchableOpacity
-            ref={registerRef('homeEntryBtn')}
-            collapsable={false}
-            style={styles.diaryBtn}
-            onPress={() => navigation.navigate('Entry', { date: todayStr })}
-          >
-            <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-            <Text style={styles.diaryBtnText}>Итог дня</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Quote of the day */}
-      <View style={styles.quoteCard}>
-        <Ionicons name="bulb-outline" size={18} color={COLORS.primary} style={{ marginBottom: 8 }} />
-        <Text style={styles.quoteText}>«{quote.text}»</Text>
-        <Text style={styles.quoteAuthor}>— {quote.author}</Text>
-      </View>
-
-      {/* Today's tasks */}
-      <View ref={registerRef('homeTodayCard')} collapsable={false} style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Задачи на сегодня</Text>
-          <View style={styles.cardHeaderRight}>
-            {todayPlans.length > 0 && (
-              <Text style={styles.taskCount}>{doneCount}/{todayPlans.length}</Text>
-            )}
+      {/* Header */}
+      <FadeSlideIn anim={anim0}>
+        <View style={styles.header}>
+          <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.greeting}>Сегодня</Text>
             <TouchableOpacity
-              ref={registerRef('homeAddTaskBtn')}
+              ref={registerRef('homeEntryBtn')}
               collapsable={false}
-              style={styles.addBtn}
-              onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
+              style={styles.diaryBtn}
+              onPress={() => navigation.navigate('Entry', { date: todayStr })}
+              activeOpacity={0.75}
             >
-              <Ionicons name="add" size={20} color={COLORS.primary} />
+              <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.diaryBtnText}>Итог дня</Text>
             </TouchableOpacity>
           </View>
         </View>
+      </FadeSlideIn>
 
-        {todayPlans.length === 0 ? (
-          <TouchableOpacity
-            style={styles.emptyTasks}
-            onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
-          >
-            <Text style={styles.emptyTasksText}>Нет задач на сегодня</Text>
-            <Text style={styles.emptyTasksHint}>Нажмите + чтобы добавить</Text>
-          </TouchableOpacity>
-        ) : (
-          todayPlans.map(plan => (
-            <TouchableOpacity key={plan.id} style={styles.taskRow} onPress={() => toggleTask(plan)}>
-              <Ionicons
-                name={plan.status === 'done' ? 'checkmark-circle' : 'ellipse-outline'}
-                size={22}
-                color={plan.status === 'done' ? '#4caf50' : COLORS.textSecondary}
-              />
-              <Text style={[styles.taskText, plan.status === 'done' && styles.taskDone]}>
-                {plan.task_text}
-              </Text>
+      {/* Quote of the day */}
+      <FadeSlideIn anim={anim1}>
+        <View style={styles.quoteCard}>
+          <Ionicons name="bulb-outline" size={18} color={COLORS.accent} style={{ marginBottom: 8 }} />
+          <Text style={styles.quoteText}>«{quote.text}»</Text>
+          <Text style={styles.quoteAuthor}>— {quote.author}</Text>
+        </View>
+      </FadeSlideIn>
+
+      {/* Today's tasks */}
+      <FadeSlideIn anim={anim2}>
+        <View ref={registerRef('homeTodayCard')} collapsable={false} style={styles.card}>
+          <View style={styles.cardAccent} />
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Задачи на сегодня</Text>
+            <View style={styles.cardHeaderRight}>
+              {todayPlans.length > 0 && (
+                <View style={styles.taskCountBadge}>
+                  <Text style={styles.taskCount}>{doneCount}/{todayPlans.length}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                ref={registerRef('homeAddTaskBtn')}
+                collapsable={false}
+                style={styles.addBtn}
+                onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={22} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {todayPlans.length === 0 ? (
+            <TouchableOpacity
+              style={styles.emptyTasks}
+              onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="pencil-outline" size={24} color={COLORS.border} style={{ marginBottom: 8 }} />
+              <Text style={styles.emptyTasksText}>Нет задач на сегодня</Text>
+              <Text style={styles.emptyTasksHint}>Нажмите + чтобы добавить</Text>
             </TouchableOpacity>
-          ))
-        )}
-      </View>
+          ) : (
+            todayPlans.map((plan, index) => (
+              <TouchableOpacity
+                key={plan.id}
+                style={[styles.taskRow, index < todayPlans.length - 1 && styles.taskRowRuled]}
+                onPress={() => toggleTask(plan)}
+                activeOpacity={0.6}
+              >
+                <Ionicons
+                  name={plan.status === 'done' ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={22}
+                  color={plan.status === 'done' ? '#4caf50' : COLORS.textSecondary}
+                />
+                <Text style={[styles.taskText, plan.status === 'done' && styles.taskDone]}>
+                  {plan.task_text}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      </FadeSlideIn>
 
       {/* Overdue tasks */}
       {overduePlans.length > 0 && (
-        <View style={[styles.card, styles.overdueCard]}>
-          <Text style={styles.cardTitle}>⚠️ Просроченные ({overduePlans.length})</Text>
-          {overduePlans.slice(0, 3).map(plan => (
-            <TouchableOpacity key={plan.id} style={styles.taskRow} onPress={() => handleOverdueTask(plan)}>
-              <Ionicons name="alert-circle-outline" size={22} color="#ff9800" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.taskText}>{plan.task_text}</Text>
-                <Text style={styles.overdueDate}>{formatDate(plan.plan_date)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-          {overduePlans.length > 3 && (
-            <TouchableOpacity onPress={() => navigation.navigate('Tasks')}>
-              <Text style={styles.moreText}>Ещё {overduePlans.length - 3} задач → все задачи</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <FadeSlideIn anim={anim3}>
+          <View style={[styles.card, styles.overdueCard]}>
+            <View style={[styles.cardAccent, { backgroundColor: '#ff9800' }]} />
+            <Text style={[styles.cardTitle, { marginTop: 4, marginBottom: 10 }]}>⚠️ Просроченные ({overduePlans.length})</Text>
+            {overduePlans.slice(0, 3).map((plan, index) => (
+              <TouchableOpacity
+                key={plan.id}
+                style={[styles.taskRow, index < Math.min(overduePlans.length, 3) - 1 && styles.taskRowRuled]}
+                onPress={() => handleOverdueTask(plan)}
+                activeOpacity={0.6}
+              >
+                <Ionicons name="alert-circle-outline" size={22} color="#ff9800" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.taskText}>{plan.task_text}</Text>
+                  <Text style={styles.overdueDate}>{formatDate(plan.plan_date)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            {overduePlans.length > 3 && (
+              <TouchableOpacity onPress={() => navigation.navigate('Tasks')}>
+                <Text style={styles.moreText}>Ещё {overduePlans.length - 3} задач → все задачи</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </FadeSlideIn>
       )}
 
       {/* AI Analysis button */}
-      <TouchableOpacity ref={registerRef('homeAiCard')} collapsable={false} style={styles.analysisCard} onPress={() => navigation.navigate('Analysis')}>
-        <View style={styles.analysisIcon}>
-          <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
-        </View>
-        <View style={styles.analysisText}>
-          <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
-          <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-      </TouchableOpacity>
+      <FadeSlideIn anim={anim4}>
+        <TouchableOpacity
+          ref={registerRef('homeAiCard')}
+          collapsable={false}
+          style={styles.analysisCard}
+          onPress={() => navigation.navigate('Analysis')}
+          activeOpacity={0.75}
+        >
+          <View style={styles.analysisIcon}>
+            <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
+          </View>
+          <View style={styles.analysisText}>
+            <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
+            <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </FadeSlideIn>
 
       {/* Add Task Modal */}
       <Modal
@@ -243,16 +354,22 @@ export default function HomeScreen({ navigation }) {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setAddModalVisible(false)}>
           <Pressable style={styles.modalContent} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Новая задача</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Текст задачи..."
-              placeholderTextColor={COLORS.textSecondary}
+            {/* Drag handle */}
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>✏️ Новая задача</Text>
+
+            <RuledInput
               value={newTaskText}
               onChangeText={setNewTaskText}
+              placeholder="Напишите задачу..."
+              placeholderTextColor={COLORS.textSecondary}
               autoFocus
-              multiline
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              focused={inputFocused}
+              colors={COLORS}
             />
+
             <Text style={styles.modalLabel}>Дата:</Text>
             <View style={styles.dateSelector}>
               {[
@@ -265,6 +382,7 @@ export default function HomeScreen({ navigation }) {
                   key={val}
                   style={[styles.datePill, newTaskDate === val && styles.datePillActive]}
                   onPress={() => setNewTaskDate(val)}
+                  activeOpacity={0.7}
                 >
                   <Text style={[styles.datePillText, newTaskDate === val && styles.datePillTextActive]}>
                     {label}
@@ -273,9 +391,10 @@ export default function HomeScreen({ navigation }) {
               ))}
             </View>
             <TouchableOpacity
-              style={[styles.modalSaveBtn, !newTaskText.trim() && { opacity: 0.5 }]}
+              style={[styles.modalSaveBtn, !newTaskText.trim() && { opacity: 0.45 }]}
               onPress={handleAddTask}
               disabled={!newTaskText.trim()}
+              activeOpacity={0.8}
             >
               <Text style={styles.modalSaveBtnText}>Добавить задачу</Text>
             </TouchableOpacity>
@@ -289,84 +408,117 @@ export default function HomeScreen({ navigation }) {
 function createStyles(C) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
+
+    // Header
     header: { padding: 20, paddingTop: 10, paddingBottom: 8 },
-    dateText: { fontSize: 13, color: C.textSecondary },
+    dateText: { fontSize: 13, color: C.textSecondary, letterSpacing: 0.3 },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-    greeting: { fontSize: 24, fontWeight: '700', color: C.text },
+    greeting: { fontSize: 26, fontWeight: '800', color: C.text },
     diaryBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
+      flexDirection: 'row', alignItems: 'center', gap: 5,
       backgroundColor: C.primaryLight, borderRadius: 20,
-      paddingHorizontal: 12, paddingVertical: 6,
+      paddingHorizontal: 14, paddingVertical: 8,
+      shadowColor: C.primary, shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2, shadowRadius: 4, elevation: 3,
     },
     diaryBtnText: { fontSize: 13, color: C.primary, fontWeight: '600' },
+
+    // Quote card
     quoteCard: {
       backgroundColor: C.surface, borderRadius: 16, padding: 16,
       marginHorizontal: 16, marginBottom: 12,
-      borderLeftWidth: 3, borderLeftColor: C.primary,
-      elevation: 2,
+      borderLeftWidth: 4, borderLeftColor: C.accent,
+      shadowColor: '#B8860B', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
     },
-    quoteText: { fontSize: 14, color: C.text, lineHeight: 21, fontStyle: 'italic', marginBottom: 8 },
-    quoteAuthor: { fontSize: 12, color: C.primary, fontWeight: '600' },
+    quoteText: { fontSize: 14, color: C.text, lineHeight: 22, fontStyle: 'italic', marginBottom: 8 },
+    quoteAuthor: { fontSize: 12, color: C.accent, fontWeight: '700' },
+
+    // Cards
     card: {
       backgroundColor: C.surface, borderRadius: 16, padding: 16,
       marginHorizontal: 16, marginBottom: 12,
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+      shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+      overflow: 'hidden',
     },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: C.text },
+    // Coloured top-strip accent (like a notebook tab)
+    cardAccent: {
+      position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+      backgroundColor: C.primary,
+    },
+    overdueCard: {},
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 },
+    cardTitle: { fontSize: 16, fontWeight: '700', color: C.text },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    taskCount: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
+    taskCountBadge: {
+      backgroundColor: C.primaryLight, borderRadius: 10,
+      paddingHorizontal: 8, paddingVertical: 2,
+    },
+    taskCount: { fontSize: 13, color: C.primary, fontWeight: '700' },
     addBtn: {
-      width: 30, height: 30, borderRadius: 15,
+      width: 32, height: 32, borderRadius: 16,
       backgroundColor: C.primaryLight,
       justifyContent: 'center', alignItems: 'center',
     },
-    emptyTasks: { paddingVertical: 12, alignItems: 'center' },
+    emptyTasks: { paddingVertical: 20, alignItems: 'center' },
     emptyTasksText: { fontSize: 14, color: C.textSecondary },
-    emptyTasksHint: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
-    taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10 },
-    taskText: { fontSize: 14, color: C.text, flex: 1 },
+    emptyTasksHint: { fontSize: 12, color: C.textSecondary, marginTop: 4, opacity: 0.7 },
+    // Task rows with notebook ruled-line dividers
+    taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
+    taskRowRuled: { borderBottomWidth: 1, borderBottomColor: C.notebookLine },
+    taskText: { fontSize: 15, color: C.text, flex: 1 },
     taskDone: { textDecorationLine: 'line-through', color: C.textSecondary },
-    overdueCard: { borderLeftWidth: 3, borderLeftColor: '#ff9800' },
     overdueDate: { fontSize: 11, color: C.textSecondary, marginTop: 1 },
-    moreText: { fontSize: 13, color: C.primary, marginTop: 6 },
+    moreText: { fontSize: 13, color: C.primary, marginTop: 8, fontWeight: '500' },
+
+    // AI Analysis card
     analysisCard: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
+      flexDirection: 'row', alignItems: 'center', gap: 14,
       backgroundColor: C.surface, borderRadius: 16, padding: 16,
-      marginHorizontal: 16, marginBottom: 20,
-      elevation: 3,
+      marginHorizontal: 16, marginBottom: 24,
+      borderTopWidth: 3, borderTopColor: C.primary,
+      shadowColor: C.primary, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.12, shadowRadius: 10, elevation: 4,
     },
     analysisIcon: {
-      width: 48, height: 48, borderRadius: 24,
+      width: 50, height: 50, borderRadius: 25,
       backgroundColor: C.primaryLight,
       justifyContent: 'center', alignItems: 'center',
     },
     analysisText: { flex: 1 },
-    analysisTitle: { fontSize: 16, fontWeight: '600', color: C.text },
-    analysisSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+    analysisTitle: { fontSize: 16, fontWeight: '700', color: C.text },
+    analysisSub: { fontSize: 12, color: C.textSecondary, marginTop: 3 },
+
     // Modal
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: {
       backgroundColor: C.surface,
-      borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      borderTopLeftRadius: 24, borderTopRightRadius: 24,
       padding: 24, paddingBottom: 40,
     },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 16 },
-    modalInput: {
-      backgroundColor: C.background, borderRadius: 12, padding: 14,
-      fontSize: 15, color: C.text, minHeight: 80, textAlignVertical: 'top', marginBottom: 16,
+    modalHandle: {
+      width: 36, height: 4, borderRadius: 2,
+      backgroundColor: C.border,
+      alignSelf: 'center', marginBottom: 20,
     },
-    modalLabel: { fontSize: 13, color: C.textSecondary, marginBottom: 8 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 16 },
+    modalLabel: { fontSize: 13, color: C.textSecondary, marginBottom: 10, fontWeight: '500' },
     dateSelector: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 20 },
     datePill: {
       paddingHorizontal: 14, paddingVertical: 8,
-      borderRadius: 20, borderWidth: 1, borderColor: C.border,
+      borderRadius: 20, borderWidth: 1.5, borderColor: C.border,
+      backgroundColor: C.background,
     },
     datePillActive: { backgroundColor: C.primary, borderColor: C.primary },
     datePillText: { fontSize: 13, color: C.text },
-    datePillTextActive: { color: '#fff', fontWeight: '600' },
-    modalSaveBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-    modalSaveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+    datePillTextActive: { color: '#fff', fontWeight: '700' },
+    modalSaveBtn: {
+      backgroundColor: C.primary, borderRadius: 14,
+      paddingVertical: 15, alignItems: 'center',
+      shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+    },
+    modalSaveBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   });
 }

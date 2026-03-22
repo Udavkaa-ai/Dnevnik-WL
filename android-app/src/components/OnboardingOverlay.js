@@ -14,24 +14,57 @@ export default function OnboardingOverlay() {
   const { isActive, currentStep, getRef, nextStep, skipTour } = useOnboarding();
   const COLORS = useColors();
   const [highlight, setHighlight] = useState(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Background overlay fade
+  const overlayFade = useRef(new Animated.Value(0)).current;
+  // Tooltip card fade + slide per step
+  const cardFade = useRef(new Animated.Value(0)).current;
+  const cardSlide = useRef(new Animated.Value(30)).current;
+  // Active dot pulse
+  const dotPulse = useRef(new Animated.Value(1)).current;
 
   const step = TOUR_STEPS[currentStep];
   const isLast = currentStep === TOUR_STEPS.length - 1;
   const total = TOUR_STEPS.length;
 
+  // Pulse animation for the active dot
+  const runDotPulse = () => {
+    dotPulse.setValue(1);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(dotPulse, { toValue: 1.4, duration: 600, useNativeDriver: true }),
+        Animated.timing(dotPulse, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ]),
+      { iterations: 3 }
+    ).start();
+  };
+
+  // Animate card in
+  const animateCardIn = () => {
+    cardFade.setValue(0);
+    cardSlide.setValue(28);
+    Animated.parallel([
+      Animated.timing(cardFade, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.spring(cardSlide, { toValue: 0, useNativeDriver: true, tension: 70, friction: 9 }),
+    ]).start(() => runDotPulse());
+  };
+
   useEffect(() => {
     if (!isActive) {
-      fadeAnim.setValue(0);
+      Animated.timing(overlayFade, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      cardFade.setValue(0);
+      cardSlide.setValue(28);
       return;
     }
 
+    // Fade in the dark overlay once when tour starts (not per step)
+    if (currentStep === 0) {
+      overlayFade.setValue(0);
+      Animated.timing(overlayFade, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    }
+
     setHighlight(null);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
+    animateCardIn();
 
     if (!step.targetRef) return;
 
@@ -66,10 +99,8 @@ export default function OnboardingOverlay() {
 
   const hasHL = highlight !== null;
 
-  // Tooltip vertical position: below the highlight if there's room, otherwise above.
-  // Always clamped to stay fully on screen.
   const getTooltipTop = () => {
-    const tooltipH = 240;
+    const tooltipH = 260;
     const minTop = 50;
     const maxTop = SCREEN_H - tooltipH - 20;
 
@@ -100,7 +131,7 @@ export default function OnboardingOverlay() {
       statusBarTranslucent
       onRequestClose={skipTour}
     >
-      <Animated.View style={[styles.root, { opacity: fadeAnim }]}>
+      <Animated.View style={[styles.root, { opacity: overlayFade }]}>
         {/* Spotlight: four dark rectangles around the highlighted element */}
         {hasHL ? (
           <>
@@ -119,31 +150,43 @@ export default function OnboardingOverlay() {
           <View style={[styles.dark, { top: 0, left: 0, right: 0, bottom: 0 }]} />
         )}
 
-        {/* Tooltip card */}
-        <View style={[
-          styles.tooltip,
-          {
-            backgroundColor: COLORS.surface,
-            top: getTooltipTop(),
-          },
-        ]}>
-          {/* Header row: progress + skip */}
+        {/* Tooltip card — fades + slides in per step */}
+        <Animated.View
+          style={[
+            styles.tooltip,
+            {
+              backgroundColor: COLORS.surface,
+              top: getTooltipTop(),
+              opacity: cardFade,
+              transform: [{ translateY: cardSlide }],
+            },
+          ]}
+        >
+          {/* Notebook-style top accent strip */}
+          <View style={[styles.tooltipAccent, { backgroundColor: COLORS.primary }]} />
+
+          {/* Header: dots + skip */}
           <View style={styles.headerRow}>
             <View style={styles.dotsRow}>
-              {TOUR_STEPS.map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    {
-                      backgroundColor: i <= currentStep ? COLORS.primary : COLORS.border,
-                      width: i === currentStep ? 18 : 6,
-                    },
-                  ]}
-                />
-              ))}
+              {TOUR_STEPS.map((_, i) => {
+                const isActive = i === currentStep;
+                const isPast = i < currentStep;
+                return (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      {
+                        backgroundColor: isPast || isActive ? COLORS.primary : COLORS.border,
+                        width: isActive ? 22 : 6,
+                        transform: isActive ? [{ scale: dotPulse }] : [],
+                      },
+                    ]}
+                  />
+                );
+              })}
             </View>
-            <TouchableOpacity onPress={skipTour} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={skipTour} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Text style={[styles.skipText, { color: COLORS.textSecondary }]}>Пропустить</Text>
             </TouchableOpacity>
           </View>
@@ -156,6 +199,7 @@ export default function OnboardingOverlay() {
           <TouchableOpacity
             style={[styles.nextBtn, { backgroundColor: COLORS.primary }]}
             onPress={isLast ? skipTour : nextStep}
+            activeOpacity={0.8}
           >
             {!isLast ? (
               <>
@@ -163,7 +207,10 @@ export default function OnboardingOverlay() {
                 <Ionicons name="arrow-forward" size={15} color="#fff" style={{ marginLeft: 6 }} />
               </>
             ) : (
-              <Text style={styles.nextBtnText}>Начать!</Text>
+              <>
+                <Text style={styles.nextBtnText}>Начать!</Text>
+                <Ionicons name="rocket-outline" size={15} color="#fff" style={{ marginLeft: 6 }} />
+              </>
             )}
           </TouchableOpacity>
 
@@ -171,7 +218,7 @@ export default function OnboardingOverlay() {
           <Text style={[styles.counter, { color: COLORS.textSecondary }]}>
             {currentStep + 1} / {total}
           </Text>
-        </View>
+        </Animated.View>
       </Animated.View>
     </Modal>
   );
@@ -188,7 +235,7 @@ const styles = StyleSheet.create({
   ring: {
     position: 'absolute',
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#6c63ff',
   },
   tooltip: {
@@ -197,11 +244,19 @@ const styles = StyleSheet.create({
     right: 16,
     borderRadius: 18,
     padding: 20,
+    paddingTop: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 14,
-    elevation: 10,
+    shadowRadius: 16,
+    elevation: 12,
+    overflow: 'hidden',
+  },
+  tooltipAccent: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, height: 3,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
   },
   headerRow: {
     flexDirection: 'row',
@@ -239,10 +294,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
+    shadowColor: '#6c63ff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   nextBtnText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#fff',
   },
   counter: {
