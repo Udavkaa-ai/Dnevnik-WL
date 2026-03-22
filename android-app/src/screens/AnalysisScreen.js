@@ -4,10 +4,19 @@ import {
   ActivityIndicator, Alert, Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getRecentEntries, getUser } from '../db/database';
+import { getRecentEntries, getUser, addPlans } from '../db/database';
 import { analyzeGeneral, analyzePsych, analyzeBalance } from '../services/ai';
 import { useColors } from '../ThemeContext';
 import MarkdownText from '../components/MarkdownText';
+
+function parseBalanceTasks(text) {
+  const tasks = [];
+  for (const line of text.split('\n')) {
+    const m = line.match(/^ЗАДАЧА:\s*(.+)/);
+    if (m && m[1].trim()) tasks.push(m[1].trim());
+  }
+  return tasks;
+}
 
 function markdownToPlainText(text) {
   return text.split('\n').map(line => {
@@ -38,6 +47,33 @@ export default function AnalysisScreen({ navigation }) {
 
   const [results, setResults] = useState({});
   const [loading, setLoading] = useState(null);
+
+  const handleAddToTasks = async (resultText) => {
+    const tasks = parseBalanceTasks(resultText);
+    if (tasks.length === 0) {
+      Alert.alert('Задачи не найдены', 'Не удалось извлечь задачи из текста анализа. Попробуй запустить анализ заново.');
+      return;
+    }
+    const preview = tasks.slice(0, 3).map(t => `• ${t}`).join('\n') + (tasks.length > 3 ? '\n...' : '');
+    Alert.alert(
+      'Добавить в задачи «Без даты»?',
+      preview,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: `Добавить ${tasks.length} ${tasks.length === 1 ? 'задачу' : 'задачи'}`,
+          onPress: async () => {
+            try {
+              await addPlans('undated', tasks);
+              Alert.alert('Готово', `${tasks.length} задач добавлены в «Без даты»`);
+            } catch (e) {
+              Alert.alert('Ошибка', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const runAnalysis = async (analysis) => {
     const user = await getUser();
@@ -97,15 +133,26 @@ export default function AnalysisScreen({ navigation }) {
           {results[analysis.id] && (
             <View style={styles.resultBox}>
               <MarkdownText text={results[analysis.id]} style={styles.resultText} />
-              <TouchableOpacity
-                style={styles.shareBtn}
-                onPress={() => Share.share({
-                  message: `${analysis.title}\n\n${markdownToPlainText(results[analysis.id])}`,
-                })}
-              >
-                <Ionicons name="share-outline" size={16} color={COLORS.primary} />
-                <Text style={[styles.shareBtnText, { color: COLORS.primary }]}>Поделиться</Text>
-              </TouchableOpacity>
+              <View style={styles.resultActions}>
+                {analysis.id === 'balance' && (
+                  <TouchableOpacity
+                    style={styles.addTasksBtn}
+                    onPress={() => handleAddToTasks(results[analysis.id])}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={COLORS.primary} />
+                    <Text style={[styles.addTasksBtnText, { color: COLORS.primary }]}>В задачи</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.shareBtn}
+                  onPress={() => Share.share({
+                    message: `${analysis.title}\n\n${markdownToPlainText(results[analysis.id])}`,
+                  })}
+                >
+                  <Ionicons name="share-outline" size={16} color={COLORS.primary} />
+                  <Text style={[styles.shareBtnText, { color: COLORS.primary }]}>Поделиться</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -141,13 +188,19 @@ function createStyles(C) {
     runBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
     resultBox: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border },
     resultText: { fontSize: 14, color: C.text, lineHeight: 22 },
+    resultActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 14 },
     shareBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      marginTop: 14, alignSelf: 'flex-end',
       paddingHorizontal: 14, paddingVertical: 7,
       borderRadius: 10, borderWidth: 1, borderColor: C.primary,
     },
     shareBtnText: { fontSize: 13, fontWeight: '500' },
+    addTasksBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 14, paddingVertical: 7,
+      borderRadius: 10, borderWidth: 1, borderColor: C.primary,
+    },
+    addTasksBtnText: { fontSize: 13, fontWeight: '500' },
     infoCard: {
       flexDirection: 'row', alignItems: 'flex-start', gap: 10,
       backgroundColor: C.primaryLight, borderRadius: 12, padding: 14, marginTop: 4,
