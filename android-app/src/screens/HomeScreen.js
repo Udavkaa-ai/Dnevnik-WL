@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert, Modal, Pressable, TextInput,
+  Animated, LayoutAnimation, UIManager, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +10,10 @@ import { getPlansForDate, getOverduePlans, updatePlanStatus, addPlan } from '../
 import { today, addDays, formatDate } from '../utils';
 import { useColors } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const DAILY_QUOTES = [
   { text: 'Ваш разум создан для идей, а не для их хранения. Записывайте всё, что требует внимания, в надёжную систему — тогда голова останется свободной для главного.', author: 'Дэвид Аллен' },
@@ -44,6 +49,34 @@ const DAILY_QUOTES = [
   { text: 'В конце каждого дня честно спрашивайте себя: «Я потратил время на то, что важно, или только казался занятым?» Разница между активностью и продуктивностью — ключевой вопрос каждого дня.', author: 'Принцип честного итога' },
 ];
 
+// Animated task row component with press scale effect
+function AnimatedTaskRow({ plan, onPress, styles, COLORS }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 0.94, duration: 80, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
+    ]).start();
+    onPress(plan);
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity style={styles.taskRow} onPress={handlePress} activeOpacity={0.8}>
+        <Ionicons
+          name={plan.status === 'done' ? 'checkmark-circle' : 'ellipse-outline'}
+          size={22}
+          color={plan.status === 'done' ? '#4caf50' : COLORS.textSecondary}
+        />
+        <Text style={[styles.taskText, plan.status === 'done' && styles.taskDone]}>
+          {plan.task_text}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function HomeScreen({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
@@ -56,6 +89,34 @@ export default function HomeScreen({ navigation }) {
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskDate, setNewTaskDate] = useState(today());
 
+  // Staggered entrance animations for each section
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const quoteAnim = useRef(new Animated.Value(0)).current;
+  const tasksAnim = useRef(new Animated.Value(0)).current;
+  const analysisAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(100, [
+      Animated.parallel([
+        Animated.timing(headerAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(quoteAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(tasksAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(analysisAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
+
+  const makeAnimStyle = (anim) => ({
+    opacity: anim,
+    transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+  });
+
   const todayStr = today();
   const dayOfMonth = new Date().getDate();
   const quote = DAILY_QUOTES[dayOfMonth - 1];
@@ -66,6 +127,7 @@ export default function HomeScreen({ navigation }) {
         getPlansForDate(todayStr),
         getOverduePlans(),
       ]);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setTodayPlans(tp);
       setOverduePlans(op.filter(p => p.plan_date !== todayStr));
     } catch (e) {
@@ -135,7 +197,8 @@ export default function HomeScreen({ navigation }) {
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
     >
-      <View style={styles.header}>
+      {/* Header */}
+      <Animated.View style={[styles.header, makeAnimStyle(headerAnim)]}>
         <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
         <View style={styles.headerRow}>
           <Text style={styles.greeting}>Сегодня</Text>
@@ -149,90 +212,110 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.diaryBtnText}>Итог дня</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Quote of the day */}
-      <View style={styles.quoteCard}>
-        <Ionicons name="bulb-outline" size={18} color={COLORS.primary} style={{ marginBottom: 8 }} />
-        <Text style={styles.quoteText}>«{quote.text}»</Text>
-        <Text style={styles.quoteAuthor}>— {quote.author}</Text>
-      </View>
-
-      {/* Today's tasks */}
-      <View ref={registerRef('homeTodayCard')} collapsable={false} style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Задачи на сегодня</Text>
-          <View style={styles.cardHeaderRight}>
-            {todayPlans.length > 0 && (
-              <Text style={styles.taskCount}>{doneCount}/{todayPlans.length}</Text>
-            )}
-            <TouchableOpacity
-              ref={registerRef('homeAddTaskBtn')}
-              collapsable={false}
-              style={styles.addBtn}
-              onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
-            >
-              <Ionicons name="add" size={20} color={COLORS.primary} />
-            </TouchableOpacity>
+      <Animated.View style={makeAnimStyle(quoteAnim)}>
+        <View style={styles.quoteCard}>
+          {/* Notebook ruled lines decoration */}
+          <View style={styles.notebookLines} pointerEvents="none">
+            {[0, 1, 2, 3].map(i => (
+              <View key={i} style={[styles.notebookLine, { top: 28 + i * 22 }]} />
+            ))}
+          </View>
+          <View style={styles.quoteContent}>
+            <Ionicons name="pencil-outline" size={16} color={COLORS.accent} style={{ marginBottom: 6 }} />
+            <Text style={styles.quoteText}>«{quote.text}»</Text>
+            <Text style={styles.quoteAuthor}>— {quote.author}</Text>
           </View>
         </View>
+      </Animated.View>
 
-        {todayPlans.length === 0 ? (
-          <TouchableOpacity
-            style={styles.emptyTasks}
-            onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
-          >
-            <Text style={styles.emptyTasksText}>Нет задач на сегодня</Text>
-            <Text style={styles.emptyTasksHint}>Нажмите + чтобы добавить</Text>
-          </TouchableOpacity>
-        ) : (
-          todayPlans.map(plan => (
-            <TouchableOpacity key={plan.id} style={styles.taskRow} onPress={() => toggleTask(plan)}>
-              <Ionicons
-                name={plan.status === 'done' ? 'checkmark-circle' : 'ellipse-outline'}
-                size={22}
-                color={plan.status === 'done' ? '#4caf50' : COLORS.textSecondary}
+      {/* Today's tasks */}
+      <Animated.View style={makeAnimStyle(tasksAnim)}>
+        <View ref={registerRef('homeTodayCard')} collapsable={false} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Задачи на сегодня</Text>
+            <View style={styles.cardHeaderRight}>
+              {todayPlans.length > 0 && (
+                <View style={styles.progressBadge}>
+                  <Text style={styles.taskCount}>{doneCount}/{todayPlans.length}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                ref={registerRef('homeAddTaskBtn')}
+                collapsable={false}
+                style={styles.addBtn}
+                onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
+              >
+                <Ionicons name="add" size={20} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {todayPlans.length === 0 ? (
+            <TouchableOpacity
+              style={styles.emptyTasks}
+              onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
+            >
+              <Ionicons name="checkmark-circle-outline" size={32} color={COLORS.border} style={{ marginBottom: 6 }} />
+              <Text style={styles.emptyTasksText}>Нет задач на сегодня</Text>
+              <Text style={styles.emptyTasksHint}>Нажмите + чтобы добавить</Text>
+            </TouchableOpacity>
+          ) : (
+            todayPlans.map(plan => (
+              <AnimatedTaskRow
+                key={plan.id}
+                plan={plan}
+                onPress={toggleTask}
+                styles={styles}
+                COLORS={COLORS}
               />
-              <Text style={[styles.taskText, plan.status === 'done' && styles.taskDone]}>
-                {plan.task_text}
-              </Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      {/* Overdue tasks */}
-      {overduePlans.length > 0 && (
-        <View style={[styles.card, styles.overdueCard]}>
-          <Text style={styles.cardTitle}>⚠️ Просроченные ({overduePlans.length})</Text>
-          {overduePlans.slice(0, 3).map(plan => (
-            <TouchableOpacity key={plan.id} style={styles.taskRow} onPress={() => handleOverdueTask(plan)}>
-              <Ionicons name="alert-circle-outline" size={22} color="#ff9800" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.taskText}>{plan.task_text}</Text>
-                <Text style={styles.overdueDate}>{formatDate(plan.plan_date)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-          {overduePlans.length > 3 && (
-            <TouchableOpacity onPress={() => navigation.navigate('Tasks')}>
-              <Text style={styles.moreText}>Ещё {overduePlans.length - 3} задач → все задачи</Text>
-            </TouchableOpacity>
+            ))
           )}
         </View>
-      )}
+
+        {/* Overdue tasks */}
+        {overduePlans.length > 0 && (
+          <View style={[styles.card, styles.overdueCard]}>
+            <Text style={styles.cardTitle}>⚠️ Просроченные ({overduePlans.length})</Text>
+            {overduePlans.slice(0, 3).map(plan => (
+              <TouchableOpacity key={plan.id} style={styles.taskRow} onPress={() => handleOverdueTask(plan)} activeOpacity={0.7}>
+                <Ionicons name="alert-circle-outline" size={22} color={COLORS.accent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.taskText}>{plan.task_text}</Text>
+                  <Text style={styles.overdueDate}>{formatDate(plan.plan_date)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            {overduePlans.length > 3 && (
+              <TouchableOpacity onPress={() => navigation.navigate('Tasks')}>
+                <Text style={styles.moreText}>Ещё {overduePlans.length - 3} задач → все задачи</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </Animated.View>
 
       {/* AI Analysis button */}
-      <TouchableOpacity ref={registerRef('homeAiCard')} collapsable={false} style={styles.analysisCard} onPress={() => navigation.navigate('Analysis')}>
-        <View style={styles.analysisIcon}>
-          <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
-        </View>
-        <View style={styles.analysisText}>
-          <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
-          <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-      </TouchableOpacity>
+      <Animated.View style={makeAnimStyle(analysisAnim)}>
+        <TouchableOpacity
+          ref={registerRef('homeAiCard')}
+          collapsable={false}
+          style={styles.analysisCard}
+          onPress={() => navigation.navigate('Analysis')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.analysisIcon}>
+            <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
+          </View>
+          <View style={styles.analysisText}>
+            <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
+            <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Add Task Modal */}
       <Modal
@@ -243,16 +326,20 @@ export default function HomeScreen({ navigation }) {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setAddModalVisible(false)}>
           <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Новая задача</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Текст задачи..."
-              placeholderTextColor={COLORS.textSecondary}
-              value={newTaskText}
-              onChangeText={setNewTaskText}
-              autoFocus
-              multiline
-            />
+            <View style={styles.notebookInputWrapper}>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Текст задачи..."
+                placeholderTextColor={COLORS.textSecondary}
+                value={newTaskText}
+                onChangeText={setNewTaskText}
+                autoFocus
+                multiline
+              />
+              <View style={styles.inputUnderline} />
+            </View>
             <Text style={styles.modalLabel}>Дата:</Text>
             <View style={styles.dateSelector}>
               {[
@@ -277,6 +364,7 @@ export default function HomeScreen({ navigation }) {
               onPress={handleAddTask}
               disabled={!newTaskText.trim()}
             >
+              <Ionicons name="checkmark" size={18} color="#fff" style={{ marginRight: 6 }} />
               <Text style={styles.modalSaveBtnText}>Добавить задачу</Text>
             </TouchableOpacity>
           </Pressable>
@@ -289,53 +377,83 @@ export default function HomeScreen({ navigation }) {
 function createStyles(C) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
-    header: { padding: 20, paddingTop: 10, paddingBottom: 8 },
-    dateText: { fontSize: 13, color: C.textSecondary },
+    header: {
+      padding: 20, paddingTop: 10, paddingBottom: 12,
+      borderBottomWidth: 2, borderBottomColor: C.notebookLine,
+      marginBottom: 4,
+    },
+    dateText: { fontSize: 13, color: C.primary, fontStyle: 'italic' },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-    greeting: { fontSize: 24, fontWeight: '700', color: C.text },
+    greeting: { fontSize: 26, fontWeight: '700', color: C.text },
     diaryBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 4,
       backgroundColor: C.primaryLight, borderRadius: 20,
       paddingHorizontal: 12, paddingVertical: 6,
+      borderWidth: 1, borderColor: C.notebookLine,
     },
     diaryBtnText: { fontSize: 13, color: C.primary, fontWeight: '600' },
+
+    // Quote card — notebook page style
     quoteCard: {
-      backgroundColor: C.surface, borderRadius: 16, padding: 16,
-      marginHorizontal: 16, marginBottom: 12,
-      borderLeftWidth: 3, borderLeftColor: C.primary,
+      backgroundColor: C.surface,
+      borderRadius: 12,
+      marginHorizontal: 16, marginTop: 12, marginBottom: 12,
+      borderLeftWidth: 4, borderLeftColor: C.accent,
+      overflow: 'hidden',
       elevation: 2,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07, shadowRadius: 6,
+      minHeight: 110,
     },
-    quoteText: { fontSize: 14, color: C.text, lineHeight: 21, fontStyle: 'italic', marginBottom: 8 },
+    notebookLines: { ...StyleSheet.absoluteFillObject },
+    notebookLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.notebookLine, opacity: 0.6 },
+    quoteContent: { padding: 16, paddingLeft: 18 },
+    quoteText: { fontSize: 13.5, color: C.text, lineHeight: 22, fontStyle: 'italic', marginBottom: 8 },
     quoteAuthor: { fontSize: 12, color: C.primary, fontWeight: '600' },
+
+    // Task card
     card: {
-      backgroundColor: C.surface, borderRadius: 16, padding: 16,
+      backgroundColor: C.surface, borderRadius: 14, padding: 16,
       marginHorizontal: 16, marginBottom: 12,
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+      shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+      borderWidth: 1, borderColor: C.border,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: C.text },
+    cardTitle: { fontSize: 16, fontWeight: '700', color: C.text },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    taskCount: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
+    progressBadge: {
+      backgroundColor: C.primaryLight, borderRadius: 12,
+      paddingHorizontal: 8, paddingVertical: 2,
+    },
+    taskCount: { fontSize: 12, color: C.primary, fontWeight: '700' },
     addBtn: {
       width: 30, height: 30, borderRadius: 15,
       backgroundColor: C.primaryLight,
       justifyContent: 'center', alignItems: 'center',
+      borderWidth: 1, borderColor: C.notebookLine,
     },
-    emptyTasks: { paddingVertical: 12, alignItems: 'center' },
+    emptyTasks: { paddingVertical: 16, alignItems: 'center' },
     emptyTasksText: { fontSize: 14, color: C.textSecondary },
     emptyTasksHint: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
-    taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10 },
+    taskRow: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 9, gap: 10,
+      borderBottomWidth: 1, borderBottomColor: C.notebookLine,
+    },
     taskText: { fontSize: 14, color: C.text, flex: 1 },
     taskDone: { textDecorationLine: 'line-through', color: C.textSecondary },
-    overdueCard: { borderLeftWidth: 3, borderLeftColor: '#ff9800' },
+    overdueCard: { borderLeftWidth: 3, borderLeftColor: C.accent },
     overdueDate: { fontSize: 11, color: C.textSecondary, marginTop: 1 },
     moreText: { fontSize: 13, color: C.primary, marginTop: 6 },
+
+    // AI card
     analysisCard: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
-      backgroundColor: C.surface, borderRadius: 16, padding: 16,
-      marginHorizontal: 16, marginBottom: 20,
-      elevation: 3,
+      backgroundColor: C.surface, borderRadius: 14, padding: 16,
+      marginHorizontal: 16, marginBottom: 24,
+      elevation: 3, borderWidth: 1, borderColor: C.notebookLine,
+      shadowColor: C.primary, shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1, shadowRadius: 8,
     },
     analysisIcon: {
       width: 48, height: 48, borderRadius: 24,
@@ -343,30 +461,41 @@ function createStyles(C) {
       justifyContent: 'center', alignItems: 'center',
     },
     analysisText: { flex: 1 },
-    analysisTitle: { fontSize: 16, fontWeight: '600', color: C.text },
+    analysisTitle: { fontSize: 16, fontWeight: '700', color: C.text },
     analysisSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+
     // Modal
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: {
       backgroundColor: C.surface,
-      borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      borderTopLeftRadius: 24, borderTopRightRadius: 24,
       padding: 24, paddingBottom: 40,
     },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 16 },
-    modalInput: {
-      backgroundColor: C.background, borderRadius: 12, padding: 14,
-      fontSize: 15, color: C.text, minHeight: 80, textAlignVertical: 'top', marginBottom: 16,
+    modalHandle: {
+      width: 40, height: 4, borderRadius: 2,
+      backgroundColor: C.border, alignSelf: 'center', marginBottom: 16,
     },
-    modalLabel: { fontSize: 13, color: C.textSecondary, marginBottom: 8 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 16 },
+    notebookInputWrapper: { marginBottom: 20 },
+    modalInput: {
+      fontSize: 15, color: C.text, minHeight: 80, textAlignVertical: 'top',
+      paddingVertical: 4, paddingHorizontal: 2,
+      fontStyle: 'italic',
+    },
+    inputUnderline: { height: 2, backgroundColor: C.notebookLine, borderRadius: 1 },
+    modalLabel: { fontSize: 13, color: C.textSecondary, marginBottom: 8, fontWeight: '600' },
     dateSelector: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 20 },
     datePill: {
       paddingHorizontal: 14, paddingVertical: 8,
-      borderRadius: 20, borderWidth: 1, borderColor: C.border,
+      borderRadius: 20, borderWidth: 1.5, borderColor: C.border,
     },
     datePillActive: { backgroundColor: C.primary, borderColor: C.primary },
     datePillText: { fontSize: 13, color: C.text },
     datePillTextActive: { color: '#fff', fontWeight: '600' },
-    modalSaveBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+    modalSaveBtn: {
+      backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15,
+      alignItems: 'center', flexDirection: 'row', justifyContent: 'center',
+    },
     modalSaveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   });
 }

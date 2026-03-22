@@ -1,8 +1,13 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Alert, Modal, Pressable,
+  Animated, LayoutAnimation, UIManager, Platform,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useOnboarding } from '../context/OnboardingContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,6 +81,7 @@ export default function TasksScreen() {
         getAllTasksForPlanner(),
         getRecurringTasks(),
       ]);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setTasks(taskData);
       setRecurring(recurringData);
     } catch (e) {
@@ -232,6 +238,7 @@ export default function TasksScreen() {
         style={[styles.taskRow, !isPending && styles.taskRowHistory]}
         onPress={isPending ? async () => { await updatePlanStatus(item.id, 'done'); loadAll(); } : undefined}
         onLongPress={isPending ? () => handleTaskAction(item) : () => handleHistoryAction(item)}
+        activeOpacity={0.75}
       >
         <Ionicons name={icon.name} size={20} color={icon.color} />
         <View style={{ flex: 1 }}>
@@ -425,6 +432,7 @@ export default function TasksScreen() {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setActionTask(null)}>
           <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalTitleRow}>
               <Text style={[styles.modalTitle, { flex: 1, marginBottom: 0 }]} numberOfLines={2}>
                 {actionTask?.task_text}
@@ -746,13 +754,13 @@ function createStyles(C) {
       fontSize: 13, fontWeight: '700', color: C.textSecondary,
       textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
     },
-    sectionHeaderOverdue: { color: '#f44336' },
+    sectionHeaderOverdue: { color: C.accent },
     sectionHeaderToday: { color: C.primary },
     sectionHeaderRow: {
       flexDirection: 'row', alignItems: 'center',
       justifyContent: 'space-between', marginBottom: 10,
     },
-    overdueDate: { fontSize: 11, color: '#f44336', marginBottom: 2, paddingLeft: 2 },
+    overdueDate: { fontSize: 11, color: C.accent, marginBottom: 2, paddingLeft: 2 },
     historySectionHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       marginBottom: 10,
@@ -765,8 +773,10 @@ function createStyles(C) {
     groupLabelTomorrow: { color: C.primary },
     taskRow: {
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: C.surface, borderRadius: 12,
-      padding: 14, marginBottom: 6, gap: 10, elevation: 1,
+      backgroundColor: C.surface, borderRadius: 10,
+      padding: 14, marginBottom: 6, gap: 10,
+      borderWidth: 1, borderColor: C.border,
+      borderLeftWidth: 3, borderLeftColor: C.notebookLine,
     },
     taskRowHistory: { opacity: 0.75 },
     taskText: { fontSize: 15, color: C.text },
@@ -793,8 +803,13 @@ function createStyles(C) {
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: {
       backgroundColor: C.surface,
-      borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      borderTopLeftRadius: 24, borderTopRightRadius: 24,
       padding: 24, paddingBottom: 40,
+      borderTopWidth: 2, borderTopColor: C.notebookLine,
+    },
+    modalHandle: {
+      width: 40, height: 4, borderRadius: 2,
+      backgroundColor: C.border, alignSelf: 'center', marginBottom: 16,
     },
     modalTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 },
     modalTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 16 },
@@ -806,8 +821,10 @@ function createStyles(C) {
     actionRowDanger: {},
     actionText: { fontSize: 16, color: C.text },
     modalInput: {
-      backgroundColor: C.background, borderRadius: 12, padding: 14,
-      fontSize: 15, color: C.text, minHeight: 80, textAlignVertical: 'top', marginBottom: 16,
+      borderBottomWidth: 2, borderBottomColor: C.notebookLine,
+      paddingVertical: 10, paddingHorizontal: 2,
+      fontSize: 15, color: C.text, minHeight: 60, textAlignVertical: 'top', marginBottom: 20,
+      fontStyle: 'italic',
     },
     modalLabel: { fontSize: 13, color: C.textSecondary, marginBottom: 8 },
     dateSelector: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 20 },
@@ -822,7 +839,8 @@ function createStyles(C) {
     modalSaveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
     timeRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
     timeInput: {
-      backgroundColor: C.background, borderRadius: 10, padding: 12,
+      borderBottomWidth: 2, borderBottomColor: C.notebookLine,
+      paddingVertical: 8, paddingHorizontal: 4,
       fontSize: 16, color: C.text, textAlign: 'center',
     },
   });

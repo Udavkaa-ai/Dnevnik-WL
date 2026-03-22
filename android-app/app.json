@@ -19,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#5a50dc"
+        "backgroundColor": "#0d5c70"
       },
       "package": "com.dnevnik.app",
       "versionCode": 2,
