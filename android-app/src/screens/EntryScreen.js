@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, KeyboardAvoidingView, Platform, Alert,
-  ActivityIndicator,
+  ActivityIndicator, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getEntry, upsertEntry, getUser } from '../db/database';
@@ -36,6 +36,11 @@ export default function EntryScreen({ route, navigation }) {
   const [saving, setSaving] = useState(false);
   const [showPrompts, setShowPrompts] = useState(false);
 
+  // Step transition animation
+  const stepAnim = useRef(new Animated.Value(1)).current;
+  // Done screen entrance animation
+  const doneAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (editMode) loadExisting();
   }, [editMode]);
@@ -51,6 +56,15 @@ export default function EntryScreen({ route, navigation }) {
 
   const currentStep = STEPS[step];
 
+  const animateStepTransition = (callback) => {
+    Animated.sequence([
+      Animated.timing(stepAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start(() => {
+      callback();
+      Animated.timing(stepAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    });
+  };
+
   const goNext = async () => {
     if (currentStep === 'text' && !text.trim()) {
       Alert.alert('Напиши хотя бы несколько слов', 'Расскажи как прошёл день');
@@ -64,7 +78,7 @@ export default function EntryScreen({ route, navigation }) {
       await saveEntry();
       return;
     }
-    setStep(s => s + 1);
+    animateStepTransition(() => setStep(s => s + 1));
   };
 
   const saveEntry = async () => {
@@ -112,11 +126,20 @@ export default function EntryScreen({ route, navigation }) {
     </View>
   );
 
+  useEffect(() => {
+    if (currentStep === 'done_screen') {
+      Animated.spring(doneAnim, { toValue: 1, friction: 5, tension: 60, useNativeDriver: true }).start();
+    }
+  }, [currentStep]);
+
   // ── Completion screen ──
   if (currentStep === 'done_screen') {
     return (
       <View style={styles.doneContainer}>
-        <View style={styles.doneCard}>
+        <Animated.View style={[styles.doneCard, {
+          opacity: doneAnim,
+          transform: [{ scale: doneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }],
+        }]}>
           <Text style={styles.doneEmoji}>🎉</Text>
           <Text style={styles.doneTitle}>Запись сохранена!</Text>
           <Text style={styles.doneSub}>
@@ -137,7 +160,7 @@ export default function EntryScreen({ route, navigation }) {
           <TouchableOpacity style={styles.doneBtn} onPress={() => navigation.navigate('Home')}>
             <Text style={styles.doneBtnText}>На главную</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     );
   }
@@ -154,7 +177,7 @@ export default function EntryScreen({ route, navigation }) {
           ))}
         </View>
 
-        <View style={styles.content}>
+        <Animated.View style={[styles.content, { opacity: stepAnim, transform: [{ translateX: stepAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
           <Text style={styles.dateLabel}>{formatDateWithWeekday(dateStr)}</Text>
 
           {currentStep === 'text' ? (
@@ -212,7 +235,7 @@ export default function EntryScreen({ route, navigation }) {
 
           <View style={styles.actions}>
             {step > 0 && (
-              <TouchableOpacity style={styles.backBtn} onPress={() => setStep(s => s - 1)}>
+              <TouchableOpacity style={styles.backBtn} onPress={() => animateStepTransition(() => setStep(s => s - 1))}>
                 <Ionicons name="arrow-back" size={20} color={COLORS.textSecondary} />
                 <Text style={styles.backBtnText}>Назад</Text>
               </TouchableOpacity>
@@ -234,7 +257,7 @@ export default function EntryScreen({ route, navigation }) {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -243,36 +266,46 @@ export default function EntryScreen({ route, navigation }) {
 function createStyles(C) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
-    progress: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 16 },
-    progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.border },
-    progressDotActive: { backgroundColor: C.primary },
+    progress: { flexDirection: 'row', justifyContent: 'center', gap: 10, paddingVertical: 18 },
+    progressDot: {
+      width: 10, height: 10, borderRadius: 5,
+      backgroundColor: C.border, borderWidth: 1.5, borderColor: C.notebookLine,
+    },
+    progressDotActive: { backgroundColor: C.primary, borderColor: C.primary, width: 24, borderRadius: 5 },
     content: { padding: 20 },
-    dateLabel: { fontSize: 13, color: C.textSecondary, marginBottom: 8 },
+    dateLabel: { fontSize: 13, color: C.primary, marginBottom: 8, fontStyle: 'italic' },
     stepTitle: { fontSize: 22, fontWeight: '700', color: C.text, marginBottom: 6 },
-    stepHint: { fontSize: 14, color: C.textSecondary, marginBottom: 12 },
+    stepHint: { fontSize: 14, color: C.textSecondary, marginBottom: 16 },
     promptsToggle: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      marginBottom: 10,
+      marginBottom: 12,
     },
     promptsToggleText: { fontSize: 13, color: C.primary },
     promptsBox: {
-      backgroundColor: C.primaryLight, borderRadius: 12,
-      padding: 14, marginBottom: 14, gap: 6,
+      backgroundColor: C.primaryLight, borderRadius: 12, borderLeftWidth: 3, borderLeftColor: C.accent,
+      padding: 14, marginBottom: 16, gap: 6,
     },
     promptItem: { fontSize: 14, color: C.text },
     promptsHint: {
       fontSize: 12, color: C.textSecondary,
       marginTop: 8, lineHeight: 17,
     },
+    // Notebook-style text input
     textInput: {
-      backgroundColor: C.surface, borderRadius: 14, padding: 16,
-      fontSize: 15, color: C.text, borderWidth: 1, borderColor: C.border,
-      minHeight: 200, maxHeight: 360,
+      backgroundColor: C.surface,
+      borderRadius: 8,
+      padding: 16,
+      paddingTop: 12,
+      fontSize: 15, color: C.text,
+      minHeight: 220, maxHeight: 380,
+      borderWidth: 1, borderColor: C.notebookLine,
+      borderLeftWidth: 4, borderLeftColor: C.accent,
+      lineHeight: 24,
     },
     moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
     moodBtn: {
-      width: 52, height: 52, borderRadius: 26,
-      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
+      width: 52, height: 52, borderRadius: 10,
+      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.notebookLine,
       justifyContent: 'center', alignItems: 'center',
     },
     moodBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
@@ -294,13 +327,20 @@ function createStyles(C) {
     nextBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
     // Done screen
     doneContainer: { flex: 1, backgroundColor: C.background, justifyContent: 'center', padding: 20 },
-    doneCard: { backgroundColor: C.surface, borderRadius: 20, padding: 28, alignItems: 'center', elevation: 4 },
+    doneCard: {
+      backgroundColor: C.surface, borderRadius: 20, padding: 28, alignItems: 'center',
+      elevation: 4, borderWidth: 1, borderColor: C.notebookLine,
+      borderTopWidth: 4, borderTopColor: C.primary,
+    },
     doneEmoji: { fontSize: 52, marginBottom: 12 },
     doneTitle: { fontSize: 22, fontWeight: '700', color: C.text },
     doneSub: { fontSize: 14, color: C.textSecondary, marginTop: 6, textAlign: 'center' },
     tipLoading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20 },
     tipLoadingText: { fontSize: 13, color: C.textSecondary },
-    tipBox: { backgroundColor: C.primaryLight, borderRadius: 14, padding: 16, marginTop: 20, width: '100%' },
+    tipBox: {
+      backgroundColor: C.primaryLight, borderRadius: 14, padding: 16, marginTop: 20, width: '100%',
+      borderLeftWidth: 3, borderLeftColor: C.primary,
+    },
     tipLabel: { fontSize: 13, fontWeight: '600', color: C.primary, marginBottom: 6 },
     tipText: { fontSize: 14, color: C.text, lineHeight: 20 },
     doneBtn: {
