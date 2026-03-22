@@ -305,7 +305,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.quoteCard}>
           <View style={styles.notebookLines} pointerEvents="none">
             {[0, 1, 2].map(i => (
-              <View key={i} style={[styles.notebookLine, { top: 22 + i * 18 }]} />
+              <View key={i} style={[styles.notebookLine, { top: 27 + i * 18 }]} />
             ))}
           </View>
           <View style={styles.quoteContent}>

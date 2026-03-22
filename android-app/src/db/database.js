@@ -490,10 +490,12 @@ export async function importDiary(text) {
   // ── Parse entries ──
   const entries = [];
   let current = null;
+  let currentField = null; // tracks which text field is being accumulated
 
   const flushEntry = () => {
     if (current && current.date) entries.push(current);
     current = null;
+    currentField = null;
   };
 
   for (const line of entriesSection.split('\n')) {
@@ -510,23 +512,32 @@ export async function importDiary(text) {
     if (doneMatch) {
       const val = doneMatch[1].trim();
       current.done = (val === '—' || val === '') ? null : val;
+      currentField = 'done';
       continue;
     }
     const notDoneMatch = line.match(/❌\s+Не получилось:\s*(.*)/);
     if (notDoneMatch) {
       const val = notDoneMatch[1].trim();
       current.not_done = (val === '—' || val === '') ? null : val;
+      currentField = 'not_done';
       continue;
     }
     const moodMatch = line.match(/🎯\s+Оценка дня:\s*(\d+)\/10/);
     if (moodMatch) {
       current.mood_score = parseInt(moodMatch[1], 10);
+      currentField = null;
       continue;
     }
     const tipMatch = line.match(/💡\s+Совет:\s*(.*)/);
     if (tipMatch) {
       current.ai_tip = tipMatch[1].trim() || null;
+      currentField = 'ai_tip';
       continue;
+    }
+    // Continuation line — append to the currently active text field
+    const trimmed = line.trim();
+    if (trimmed && currentField && current[currentField] !== null) {
+      current[currentField] = current[currentField] + '\n' + trimmed;
     }
   }
   flushEntry();
@@ -565,8 +576,12 @@ export async function importDiary(text) {
         continue;
       }
       const trimmed = line.trim();
-      if (trimmed && !currentTask.task_text) {
-        currentTask.task_text = trimmed;
+      if (trimmed) {
+        if (!currentTask.task_text) {
+          currentTask.task_text = trimmed;
+        } else {
+          currentTask.task_text += '\n' + trimmed;
+        }
       }
     }
     flushTask();
