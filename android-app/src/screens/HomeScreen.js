@@ -214,21 +214,24 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Animated.View>
 
-      {/* Quote of the day */}
+      {/* AI Analysis button */}
       <Animated.View style={makeAnimStyle(quoteAnim)}>
-        <View style={styles.quoteCard}>
-          {/* Notebook ruled lines decoration */}
-          <View style={styles.notebookLines} pointerEvents="none">
-            {[0, 1, 2, 3].map(i => (
-              <View key={i} style={[styles.notebookLine, { top: 28 + i * 22 }]} />
-            ))}
+        <TouchableOpacity
+          ref={registerRef('homeAiCard')}
+          collapsable={false}
+          style={styles.analysisCard}
+          onPress={() => navigation.navigate('Analysis')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.analysisIcon}>
+            <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
           </View>
-          <View style={styles.quoteContent}>
-            <Ionicons name="pencil-outline" size={16} color={COLORS.accent} style={{ marginBottom: 6 }} />
-            <Text style={styles.quoteText}>«{quote.text}»</Text>
-            <Text style={styles.quoteAuthor}>— {quote.author}</Text>
+          <View style={styles.analysisText}>
+            <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
+            <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
       </Animated.View>
 
       {/* Today's tasks */}
@@ -297,24 +300,19 @@ export default function HomeScreen({ navigation }) {
         )}
       </Animated.View>
 
-      {/* AI Analysis button */}
+      {/* Quote of the day */}
       <Animated.View style={makeAnimStyle(analysisAnim)}>
-        <TouchableOpacity
-          ref={registerRef('homeAiCard')}
-          collapsable={false}
-          style={styles.analysisCard}
-          onPress={() => navigation.navigate('Analysis')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.analysisIcon}>
-            <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
+        <View style={styles.quoteCard}>
+          <View style={styles.notebookLines} pointerEvents="none">
+            {[0, 1, 2].map(i => (
+              <View key={i} style={[styles.notebookLine, { top: 22 + i * 18 }]} />
+            ))}
           </View>
-          <View style={styles.analysisText}>
-            <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
-            <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
+          <View style={styles.quoteContent}>
+            <Text style={styles.quoteText}>«{quote.text}»</Text>
+            <Text style={styles.quoteAuthor}>— {quote.author}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-        </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {/* Add Task Modal */}
@@ -393,23 +391,22 @@ function createStyles(C) {
     },
     diaryBtnText: { fontSize: 13, color: C.primary, fontWeight: '600' },
 
-    // Quote card — notebook page style
+    // Quote card — compact notebook style
     quoteCard: {
       backgroundColor: C.surface,
-      borderRadius: 12,
-      marginHorizontal: 16, marginTop: 12, marginBottom: 12,
-      borderLeftWidth: 4, borderLeftColor: C.accent,
+      borderRadius: 10,
+      marginHorizontal: 16, marginTop: 8, marginBottom: 16,
+      borderLeftWidth: 3, borderLeftColor: C.accent,
       overflow: 'hidden',
-      elevation: 2,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.07, shadowRadius: 6,
-      minHeight: 110,
+      elevation: 1,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05, shadowRadius: 4,
     },
     notebookLines: { ...StyleSheet.absoluteFillObject },
-    notebookLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.notebookLine, opacity: 0.6 },
-    quoteContent: { padding: 16, paddingLeft: 18 },
-    quoteText: { fontSize: 13.5, color: C.text, lineHeight: 22, fontStyle: 'italic', marginBottom: 8 },
-    quoteAuthor: { fontSize: 12, color: C.primary, fontWeight: '600' },
+    notebookLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.notebookLine, opacity: 0.5 },
+    quoteContent: { padding: 10, paddingLeft: 14 },
+    quoteText: { fontSize: 12, color: C.textSecondary, lineHeight: 18, fontStyle: 'italic', marginBottom: 4 },
+    quoteAuthor: { fontSize: 11, color: C.primary, fontWeight: '600' },
 
     // Task card
     card: {

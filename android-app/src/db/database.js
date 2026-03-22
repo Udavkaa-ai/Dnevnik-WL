@@ -452,14 +452,24 @@ export async function materializeRecurringTasks() {
   for (const r of recurring) {
     const targetDate = _recurringTargetDate(r.recurrence_type, r.recurrence_day);
     if (!targetDate) continue;
+    // Check by recurring_id first; also check by task_text+date to avoid
+    // duplicates after backup restore (imported tasks lose recurring_id).
     const existing = await db.getFirstAsync(
-      'SELECT id FROM plans WHERE user_id = 1 AND recurring_id = ? AND plan_date = ?',
-      [r.id, targetDate]
+      `SELECT id, recurring_id FROM plans WHERE user_id = 1 AND plan_date = ?
+       AND (recurring_id = ? OR (recurring_id IS NULL AND task_text = ?))
+       LIMIT 1`,
+      [targetDate, r.id, r.task_text]
     );
     if (!existing) {
       await db.runAsync(
         'INSERT INTO plans (user_id, plan_date, task_text, recurring_id) VALUES (1, ?, ?, ?)',
         [targetDate, r.task_text, r.id]
+      );
+    } else if (!existing.recurring_id) {
+      // Re-link imported task back to its recurring definition
+      await db.runAsync(
+        'UPDATE plans SET recurring_id = ? WHERE id = ?',
+        [r.id, existing.id]
       );
     }
   }
