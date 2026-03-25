@@ -55,6 +55,10 @@ export default function TasksScreen() {
   // ── Task action bottom-sheet ───────────────────────────────────────────────
   const [actionTask, setActionTask] = useState(null);
 
+  // ── Move reason modal ──────────────────────────────────────────────────────
+  const [moveReasonModal, setMoveReasonModal] = useState(null); // { task, moveTo }
+  const [moveReasonText, setMoveReasonText] = useState('');
+
   // ── Edit task modal ────────────────────────────────────────────────────────
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
@@ -445,17 +449,21 @@ export default function TasksScreen() {
               {actionTask?.plan_date === 'undated' ? '📌 Без даты' : formatDateRelative(actionTask?.plan_date ?? '')}
             </Text>
 
-            <TouchableOpacity style={styles.actionRow} onPress={async () => {
-              await updatePlanStatus(actionTask.id, 'moved', { moved_to: addDays(today(), 1) });
-              setActionTask(null); loadAll();
+            <TouchableOpacity style={styles.actionRow} onPress={() => {
+              const t = actionTask;
+              setActionTask(null);
+              setMoveReasonText('');
+              setMoveReasonModal({ task: t, moveTo: addDays(today(), 1) });
             }}>
               <Ionicons name="calendar-outline" size={22} color={COLORS.text} />
               <Text style={styles.actionText}>На завтра</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionRow} onPress={async () => {
-              await moveToUndated(actionTask.id);
-              setActionTask(null); loadAll();
+            <TouchableOpacity style={styles.actionRow} onPress={() => {
+              const t = actionTask;
+              setActionTask(null);
+              setMoveReasonText('');
+              setMoveReasonModal({ task: t, moveTo: 'undated' });
             }}>
               <Ionicons name="bookmark-outline" size={22} color={COLORS.text} />
               <Text style={styles.actionText}>Без даты</Text>
@@ -738,6 +746,47 @@ export default function TasksScreen() {
               <Text style={styles.modalSaveBtnText}>
                 {editingRecurring ? 'Сохранить' : 'Добавить'}
               </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Move Reason Modal */}
+      <Modal
+        visible={!!moveReasonModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMoveReasonModal(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMoveReasonModal(null)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Почему переносишь?</Text>
+            <Text style={[styles.actionSubtitle, { marginBottom: 12 }]} numberOfLines={2}>
+              {moveReasonModal?.task?.task_text}
+            </Text>
+            <TextInput
+              style={[styles.modalInput, { marginBottom: 20 }]}
+              placeholder="Причина (необязательно)..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={moveReasonText}
+              onChangeText={setMoveReasonText}
+              autoFocus
+              multiline
+            />
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={async () => {
+                await updatePlanStatus(moveReasonModal.task.id, 'moved', {
+                  moved_to: moveReasonModal.moveTo,
+                  reason: moveReasonText.trim() || null,
+                });
+                setMoveReasonModal(null);
+                setMoveReasonText('');
+                loadAll();
+              }}
+            >
+              <Text style={styles.modalSaveBtnText}>Перенести</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>

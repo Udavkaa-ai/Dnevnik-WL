@@ -88,6 +88,8 @@ export default function HomeScreen({ navigation }) {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskDate, setNewTaskDate] = useState(today());
+  const [moveReasonModal, setMoveReasonModal] = useState(null); // { plan, moveTo }
+  const [moveReasonText, setMoveReasonText] = useState('');
 
   // Staggered entrance animations for each section
   const headerAnim = useRef(new Animated.Value(0)).current;
@@ -164,21 +166,26 @@ export default function HomeScreen({ navigation }) {
         { text: '✅ Выполнено', onPress: async () => { await updatePlanStatus(plan.id, 'done'); load(); } },
         {
           text: '📅 На сегодня',
-          onPress: async () => {
-            await updatePlanStatus(plan.id, 'moved', { moved_to: todayStr, reason: 'перенесено вручную' });
-            load();
-          },
+          onPress: () => { setMoveReasonText(''); setMoveReasonModal({ plan, moveTo: todayStr }); },
         },
         {
           text: '📌 Без даты',
-          onPress: async () => {
-            await updatePlanStatus(plan.id, 'moved', { moved_to: 'undated', reason: 'убрано без даты' });
-            load();
-          },
+          onPress: () => { setMoveReasonText(''); setMoveReasonModal({ plan, moveTo: 'undated' }); },
         },
         { text: '🗑 Отменить', style: 'destructive', onPress: async () => { await updatePlanStatus(plan.id, 'cancelled'); load(); } },
       ]
     );
+  };
+
+  const confirmMoveWithReason = async () => {
+    if (!moveReasonModal) return;
+    await updatePlanStatus(moveReasonModal.plan.id, 'moved', {
+      moved_to: moveReasonModal.moveTo,
+      reason: moveReasonText.trim() || null,
+    });
+    setMoveReasonModal(null);
+    setMoveReasonText('');
+    load();
   };
 
   const handleAddTask = async () => {
@@ -314,6 +321,40 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Animated.View>
+
+      {/* Move Reason Modal */}
+      <Modal
+        visible={!!moveReasonModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMoveReasonModal(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMoveReasonModal(null)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Почему переносишь?</Text>
+            <Text style={[styles.modalLabel, { marginBottom: 12 }]} numberOfLines={2}>
+              {moveReasonModal?.plan?.task_text}
+            </Text>
+            <View style={styles.notebookInputWrapper}>
+              <TextInput
+                style={[styles.modalInput, { minHeight: 48 }]}
+                placeholder="Причина (необязательно)..."
+                placeholderTextColor={COLORS.textSecondary}
+                value={moveReasonText}
+                onChangeText={setMoveReasonText}
+                autoFocus
+                multiline
+              />
+              <View style={styles.inputUnderline} />
+            </View>
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={confirmMoveWithReason}>
+              <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.modalSaveBtnText}>Перенести</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Add Task Modal */}
       <Modal
