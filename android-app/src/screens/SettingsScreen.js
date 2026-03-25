@@ -11,6 +11,7 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { getUser, updateUser, exportDiary, importDiary, exportCalendarICS, importCalendarICS } from '../db/database';
 import { scheduleMorningReminder, scheduleEveningReminder, cancelAllReminders, requestPermissions } from '../services/notifications';
+import Constants from 'expo-constants';
 import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
 
@@ -484,7 +485,7 @@ export default function SettingsScreen() {
       {/* Credits */}
       <View style={{ alignItems: 'center', paddingVertical: 16 }}>
         <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 18 }}>
-          сделано Удавом Каа с помощью Claude
+          сделано Удавом Каа с помощью Claude{'\n'}v{Constants.expoConfig?.version}
         </Text>
       </View>
     </ScrollView>
