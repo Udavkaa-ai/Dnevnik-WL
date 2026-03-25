@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getRecentEntries, getUser, addPlans } from '../db/database';
-import { analyzeGeneral, analyzePsych, analyzeBalance } from '../services/ai';
+import { analyzeGeneral, analyzePsych, analyzeBalance, analyzeTransactional } from '../services/ai';
 import { notifyAnalysisReady } from '../services/notifications';
 import { useColors } from '../ThemeContext';
 import MarkdownText from '../components/MarkdownText';
@@ -40,6 +40,7 @@ const ANALYSES = [
   { id: 'general30', title: 'Общий анализ (30 дней)', icon: 'analytics-outline', days: 30, type: 'general' },
   { id: 'psych', title: 'Психологический анализ', icon: 'heart-outline', days: 14, type: 'psych' },
   { id: 'balance', title: 'Work-life баланс', icon: 'scale-outline', days: 30, type: 'balance' },
+  { id: 'transactional', title: 'Транзактный анализ', icon: 'people-outline', days: 30, type: 'transactional' },
 ];
 
 export default function AnalysisScreen({ navigation }) {
@@ -97,6 +98,7 @@ export default function AnalysisScreen({ navigation }) {
       if (analysis.type === 'general') result = await analyzeGeneral(entries, analysis.days, user, user.openrouter_key);
       else if (analysis.type === 'psych') result = await analyzePsych(entries, analysis.days, user, user.openrouter_key);
       else if (analysis.type === 'balance') result = await analyzeBalance(entries, user, user.openrouter_key);
+      else if (analysis.type === 'transactional') result = await analyzeTransactional(entries, user, user.openrouter_key);
       setResults(prev => ({ ...prev, [analysis.id]: result }));
       notifyAnalysisReady(analysis.title).catch(() => {});
     } catch (e) {
