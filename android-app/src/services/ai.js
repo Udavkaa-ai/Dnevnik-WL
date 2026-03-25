@@ -60,9 +60,9 @@ function formatUserProfile(user) {
   return profile;
 }
 
-async function callAI(apiKey, model, systemMsg, userMsg) {
+async function callAI(apiKey, model, systemMsg, userMsg, maxTokens = 1500) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 60000);
 
   let response;
   try {
@@ -76,7 +76,7 @@ async function callAI(apiKey, model, systemMsg, userMsg) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1500,
+        max_tokens: maxTokens,
         messages: [
           { role: 'system', content: systemMsg },
           { role: 'user', content: userMsg },
@@ -131,7 +131,8 @@ export async function analyzePsych(entries, days, user, apiKey) {
     `2. РАЗРЫВ ПЛАН/РЕАЛЬНОСТЬ — реалистично ли планирование\n` +
     `3. ЧТО ЗАРЯЖАЕТ, ЧТО СЛИВАЕТ — корреляция оценок с содержанием\n` +
     `4. ПСИХОЛОГИЧЕСКОЕ СОСТОЯНИЕ — общий фон за период\n` +
-    `5. 3 КОНКРЕТНЫЕ РЕКОМЕНДАЦИИ — из библиотеки активностей выше`
+    `5. 3 КОНКРЕТНЫЕ РЕКОМЕНДАЦИИ — из библиотеки активностей выше`,
+    3000
   );
 }
 
