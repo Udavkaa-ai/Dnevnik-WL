@@ -383,6 +383,7 @@ export async function exportDiary() {
     let header = `📋 ${p.plan_date} | ${p.status}`;
     if (p.status === 'moved' && p.moved_to) header += ` | ${p.moved_to}`;
     text += header + '\n';
+    if (p.reason) text += `💬 Причина: ${p.reason}\n`;
     if (p.time_start) text += `🕐 ${p.time_start}${p.time_end ? ' – ' + p.time_end : ''}\n`;
     text += p.task_text + '\n\n';
   }
@@ -590,10 +591,13 @@ export async function importDiary(text) {
           task_text: null,
           time_start: null,
           time_end: null,
+          reason: null,
         };
         continue;
       }
       if (!currentTask) continue;
+      const reasonMatch = line.match(/💬\s+Причина:\s*(.*)/);
+      if (reasonMatch) { currentTask.reason = reasonMatch[1].trim() || null; continue; }
       // 🕐 HH:MM [– HH:MM]
       const timeMatch = line.match(/🕐\s+(\d{1,2}:\d{2})(?:\s+–\s+(\d{1,2}:\d{2}))?/);
       if (timeMatch) {
@@ -696,6 +700,7 @@ export async function importDiary(text) {
       } else {
         const fields = { user_id: 1, plan_date: t.plan_date, task_text: t.task_text, status: t.status };
         if (t.moved_to)   fields.moved_to   = t.moved_to;
+        if (t.reason)     fields.reason      = t.reason;
         if (t.time_start) fields.time_start  = t.time_start;
         if (t.time_end)   fields.time_end    = t.time_end;
         const keys = Object.keys(fields);
