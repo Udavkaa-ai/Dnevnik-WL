@@ -60,7 +60,7 @@ function formatUserProfile(user) {
   return profile;
 }
 
-async function callAI(apiKey, model, systemMsg, userMsg, maxTokens = 1500) {
+async function callAI(apiKey, model, systemMsg, userMsg, maxTokens = 2000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
 
