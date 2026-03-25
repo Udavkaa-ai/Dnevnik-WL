@@ -43,6 +43,30 @@ function formatEntries(entries) {
   ).join('\n');
 }
 
+function formatEntriesRich(entries) {
+  return entries.map(e => {
+    const done = (e.plans || []).filter(p => p.status === 'done').map(p => `  + ${p.task_text}`);
+    const moved = (e.plans || []).filter(p => p.status === 'moved').map(p => `  → ${p.task_text}${p.reason ? ` (причина: ${p.reason})` : ''}${p.moved_to ? ` [перенесено на ${p.moved_to}]` : ''}`);
+    const cancelled = (e.plans || []).filter(p => p.status === 'cancelled').map(p => `  ✗ ${p.task_text}${p.reason ? ` (причина: ${p.reason})` : ''}`);
+    const pending = (e.plans || []).filter(p => p.status === 'pending').map(p => `  ? ${p.task_text}`);
+
+    const detail = (e.done || '').length + (e.not_done || '').length;
+    const detailLevel = detail > 300 ? 'подробная' : detail > 100 ? 'средняя' : detail > 0 ? 'краткая' : 'нет';
+
+    const lines = [
+      `[${e.date}] Оценка: ${e.mood_score || '?'}/10 | Детальность записи: ${detailLevel}`,
+      e.done ? `  Запись "Сделал": ${e.done}` : null,
+      e.not_done ? `  Запись "Не сделал": ${e.not_done}` : null,
+      done.length ? `  Выполненные задачи:\n${done.join('\n')}` : null,
+      moved.length ? `  Перенесённые задачи:\n${moved.join('\n')}` : null,
+      cancelled.length ? `  Отменённые задачи:\n${cancelled.join('\n')}` : null,
+      pending.length ? `  Незакрытые задачи:\n${pending.join('\n')}` : null,
+    ].filter(Boolean);
+
+    return lines.join('\n');
+  }).join('\n\n');
+}
+
 function formatUserProfile(user) {
   if (!user) return '';
   const gender = user.gender === 'male' ? 'Мужчина' : user.gender === 'female' ? 'Женщина' : null;
@@ -117,7 +141,7 @@ export async function analyzeGeneral(entries, days, user, apiKey) {
 }
 
 export async function analyzePsych(entries, days, user, apiKey) {
-  const entriesText = formatEntries(entries);
+  const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
   return callAI(
@@ -137,7 +161,7 @@ export async function analyzePsych(entries, days, user, apiKey) {
 }
 
 export async function analyzeBalance(entries, user, apiKey) {
-  const entriesText = formatEntries(entries);
+  const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
   return callAI(
@@ -157,23 +181,24 @@ export async function analyzeBalance(entries, user, apiKey) {
 }
 
 export async function analyzeTransactional(entries, user, apiKey) {
-  const entriesText = formatEntries(entries);
+  const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
   return callAI(
     apiKey,
     MODEL_HEAVY,
     `Ты психоаналитик, специалист по транзактному анализу Эрика Берна. Пиши по-русски, глубоко и конкретно — только то, что реально прослеживается в записях. Без общих фраз.${profile}`,
-    `Дневниковые записи за 30 дней:\n${entriesText}\n\n` +
+    `Дневниковые записи за 30 дней (с задачами по статусам и полным текстом):\n${entriesText}\n\n` +
     `Проведи глубокий транзактный анализ по следующим разделам:\n\n` +
-    `1. ЭГО-СОСТОЯНИЯ — какие состояния (Родитель, Взрослый, Дитя) доминируют в записях, в каких ситуациях и как проявляются. Конкретные примеры из записей.\n\n` +
-    `2. ЖИЗНЕННЫЙ СЦЕНАРИЙ — какой сценарий прослеживается: победитель, непобедитель, неудачник. Какие повторяющиеся паттерны подтверждают этот сценарий.\n\n` +
-    `3. ПСИХОЛОГИЧЕСКИЕ ИГРЫ — какие игры по Берну разыгрываются (например: «Да, но...», «Видишь, как я стараюсь», «Если бы не ты»). Конкретные признаки из записей.\n\n` +
-    `4. ДРАЙВЕРЫ И ЗАПРЕТЫ — какие драйверы поведения активны («Будь лучшим», «Торопись», «Старайся», «Радуй других», «Будь сильным»). Как они влияют на ежедневные решения.\n\n` +
-    `5. ПСИХОЛОГИЧЕСКИЕ ПОГЛАЖИВАНИЯ — как человек получает и даёт поглаживания. Соотношение позитивных и негативных. Чего не хватает.\n\n` +
-    `6. СТРУКТУРИРОВАНИЕ ВРЕМЕНИ — как распределяется время между: уход, ритуалы, времяпровождение, деятельность, игры, близость.\n\n` +
-    `7. ЖИЗНЕННАЯ ПОЗИЦИЯ — какая из четырёх позиций доминирует («Я ОК — Ты ОК», «Я не ОК — Ты ОК», «Я ОК — Ты не ОК», «Я не ОК — Ты не ОК»). Обоснование.\n\n` +
-    `8. РЕКОМЕНДАЦИИ — 4–5 конкретных шагов для работы с выявленными паттернами, основанных строго на данных выше.`,
+    `1. ЭГО-СОСТОЯНИЯ — какие состояния (Родитель, Взрослый, Дитя) доминируют в записях, в каких ситуациях и как проявляются. Конкретные цитаты и примеры.\n\n` +
+    `2. ПОЗИЦИЯ ОПИСАНИЯ — с какой позиции человек описывает события: наблюдатель, участник, жертва, автор. Как меняется в зависимости от темы. Примеры формулировок из записей.\n\n` +
+    `3. ПАТТЕРН ЗАДАЧ — соотношение выполненных / перенесённых / отменённых задач. Что чаще переносится и отменяется — и что это говорит о внутренних конфликтах и запретах. Детальность записей: когда пишет подробно, когда кратко — и почему.\n\n` +
+    `4. ЖИЗНЕННЫЙ СЦЕНАРИЙ — какой сценарий прослеживается: победитель, непобедитель, неудачник. Какие повторяющиеся паттерны подтверждают этот сценарий.\n\n` +
+    `5. ПСИХОЛОГИЧЕСКИЕ ИГРЫ — какие игры по Берну разыгрываются (например: «Да, но...», «Видишь, как я стараюсь», «Если бы не ты»). Конкретные признаки из записей.\n\n` +
+    `6. ДРАЙВЕРЫ И ЗАПРЕТЫ — какие драйверы поведения активны («Будь лучшим», «Торопись», «Старайся», «Радуй других», «Будь сильным»). Как они влияют на ежедневные решения и выбор задач.\n\n` +
+    `7. ПСИХОЛОГИЧЕСКИЕ ПОГЛАЖИВАНИЯ — как человек получает и даёт поглаживания. Соотношение позитивных и негативных. Чего не хватает.\n\n` +
+    `8. ЖИЗНЕННАЯ ПОЗИЦИЯ — какая из четырёх позиций доминирует («Я ОК — Ты ОК», «Я не ОК — Ты ОК», «Я ОК — Ты не ОК», «Я не ОК — Ты не ОК»). Обоснование.\n\n` +
+    `9. РЕКОМЕНДАЦИИ — 4–5 конкретных шагов для работы с выявленными паттернами, основанных строго на данных выше.`,
     5000
   );
 }

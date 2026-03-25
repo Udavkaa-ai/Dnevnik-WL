@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert, Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getRecentEntries, getUser, addPlans } from '../db/database';
+import { getRecentEntries, getRecentEntriesWithPlans, getUser, addPlans } from '../db/database';
 import { analyzeGeneral, analyzePsych, analyzeBalance, analyzeTransactional } from '../services/ai';
 import { notifyAnalysisReady } from '../services/notifications';
 import { useColors } from '../ThemeContext';
@@ -88,7 +88,10 @@ export default function AnalysisScreen({ navigation }) {
     }
     setLoading(analysis.id);
     try {
-      const entries = await getRecentEntries(analysis.days);
+      const useRich = analysis.type !== 'general';
+      const entries = useRich
+        ? await getRecentEntriesWithPlans(analysis.days)
+        : await getRecentEntries(analysis.days);
       if (entries.length < 2) {
         Alert.alert('Мало данных', `Нужно минимум 2 записи. У тебя: ${entries.length}.`);
         setLoading(null);
