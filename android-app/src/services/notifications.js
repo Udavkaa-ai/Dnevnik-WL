@@ -82,3 +82,15 @@ export async function cancelAllReminders() {
 export async function getScheduledNotifications() {
   return await Notifications.getAllScheduledNotificationsAsync();
 }
+
+export async function notifyAnalysisReady(title) {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '✅ Анализ готов',
+      body: title,
+      sound: true,
+      channelId: 'diary-reminders',
+    },
+    trigger: null,
+  });
+}

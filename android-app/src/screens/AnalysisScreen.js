@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getRecentEntries, getUser, addPlans } from '../db/database';
 import { analyzeGeneral, analyzePsych, analyzeBalance } from '../services/ai';
+import { notifyAnalysisReady } from '../services/notifications';
 import { useColors } from '../ThemeContext';
 import MarkdownText from '../components/MarkdownText';
 
@@ -97,6 +98,7 @@ export default function AnalysisScreen({ navigation }) {
       else if (analysis.type === 'psych') result = await analyzePsych(entries, analysis.days, user, user.openrouter_key);
       else if (analysis.type === 'balance') result = await analyzeBalance(entries, user, user.openrouter_key);
       setResults(prev => ({ ...prev, [analysis.id]: result }));
+      notifyAnalysisReady(analysis.title).catch(() => {});
     } catch (e) {
       Alert.alert('Ошибка AI', e.message);
     } finally {
