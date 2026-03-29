@@ -6,7 +6,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getRecentEntries, getUser, addPlans } from '../db/database';
 import { analyzeGeneral, analyzePsych, analyzeBalance } from '../services/ai';
-import { useColors } from '../ThemeContext';
+import { useColors, useTheme } from '../ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import MarkdownText from '../components/MarkdownText';
 
 function parseBalanceTasks(text) {
@@ -43,6 +44,7 @@ const ANALYSES = [
 
 export default function AnalysisScreen({ navigation }) {
   const COLORS = useColors();
+  const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
 
   const [results, setResults] = useState({});
@@ -105,7 +107,11 @@ export default function AnalysisScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+    <LinearGradient
+      colors={isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da']}
+      style={{ flex: 1 }}
+    >
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
       <Text style={styles.headerNote}>
         AI анализирует твои записи дневника и даёт конкретные выводы.
         Требует OpenRouter API ключ.
@@ -166,6 +172,7 @@ export default function AnalysisScreen({ navigation }) {
         </Text>
       </View>
     </ScrollView>
+    </LinearGradient>
   );
 }
 
@@ -173,13 +180,20 @@ function createStyles(C) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
     headerNote: { fontSize: 13, color: C.textSecondary, lineHeight: 18, marginBottom: 16 },
-    card: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12, elevation: 2 },
+    card: {
+      backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12,
+      elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07, shadowRadius: 6,
+    },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     cardIcon: {
       width: 40, height: 40, borderRadius: 20,
       backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center',
     },
-    cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: C.text },
+    cardTitle: {
+      flex: 1, fontSize: 17, fontWeight: '600', color: C.text,
+      fontFamily: 'Caveat_700Bold',
+    },
     runBtn: {
       backgroundColor: C.primary, borderRadius: 10,
       paddingHorizontal: 14, paddingVertical: 8, minWidth: 90, alignItems: 'center',

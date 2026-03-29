@@ -4,8 +4,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getMoodData, getTaskStats } from '../db/database';
-import { useColors } from '../ThemeContext';
+import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
 
 const screenWidth = Dimensions.get('window').width;
@@ -26,6 +27,7 @@ function StatBox({ label, value, suffix = '', color, textColor }) {
 
 export default function StatsScreen() {
   const COLORS = useColors();
+  const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
 
@@ -67,7 +69,20 @@ export default function StatsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+    <LinearGradient
+      colors={isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da']}
+      style={{ flex: 1 }}
+    >
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+      {/* Header banner */}
+      <LinearGradient
+        colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerBanner}
+      >
+        <Text style={styles.bannerTitle}>Статистика</Text>
+      </LinearGradient>
       <View style={styles.periodSelector}>
         {[7, 14, 30].map(p => (
           <TouchableOpacity
@@ -157,12 +172,24 @@ export default function StatsScreen() {
         </View>
       )}
     </ScrollView>
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
+    headerBanner: {
+      borderRadius: 16, padding: 20, marginBottom: 16,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+    },
+    bannerTitle: {
+      fontSize: 28, color: '#fff',
+      fontFamily: 'Caveat_700Bold',
+    },
     periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 16 },
     periodBtn: {
       flex: 1, paddingVertical: 10, borderRadius: 10,
@@ -171,8 +198,16 @@ function createStyles(C) {
     periodBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
     periodBtnText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
     periodBtnTextActive: { color: '#fff' },
-    card: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12, elevation: 2 },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: C.text, marginBottom: 12 },
+    card: {
+      backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12,
+      elevation: 3,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07, shadowRadius: 6,
+    },
+    cardTitle: {
+      fontSize: 20, fontWeight: '600', color: C.text, marginBottom: 12,
+      fontFamily: 'Caveat_700Bold',
+    },
     statsRow: { flexDirection: 'row', marginTop: 12 },
     noDataText: { fontSize: 14, color: C.textSecondary, textAlign: 'center', paddingVertical: 20 },
     completionBar: { height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden' },

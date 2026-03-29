@@ -6,6 +6,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import { useFonts, Caveat_400Regular, Caveat_700Bold } from '@expo-google-fonts/caveat';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { openDatabase } from './src/db/database';
 import { ThemeProvider, useColors, useTheme } from './src/ThemeContext';
@@ -68,22 +70,25 @@ function HomeTabs() {
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.notebookLine || COLORS.border,
-          borderTopWidth: 2,
+          backgroundColor: isDark ? '#1e1c2c' : '#fffef8',
+          borderTopColor: isDark ? '#2a3d52' : '#c5d8ea',
+          borderTopWidth: 1.5,
           paddingBottom: 6,
           paddingTop: 4,
           height: 64,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         tabBarButton: (props) => <AnimatedTabButton {...props} />,
-        headerStyle: {
-          backgroundColor: COLORS.surface,
-          borderBottomWidth: 2,
-          borderBottomColor: COLORS.notebookLine || COLORS.border,
-        },
-        headerTintColor: COLORS.text,
-        headerTitleStyle: { fontWeight: '700' },
+        headerBackground: () => (
+          <LinearGradient
+            colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ flex: 1 }}
+          />
+        ),
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: '700', fontFamily: 'Caveat_700Bold', fontSize: 20 },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная', headerTitle: 'Дневник' }} />
@@ -110,13 +115,20 @@ function AppNavigator({ navigationRef }) {
 
   return (
     <>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
-            headerStyle: { backgroundColor: COLORS.surface },
-            headerTintColor: COLORS.text,
-            headerTitleStyle: { fontWeight: '700' },
+            headerBackground: () => (
+              <LinearGradient
+                colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ flex: 1 }}
+              />
+            ),
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: '700', fontFamily: 'Caveat_700Bold', fontSize: 20 },
           }}
         >
           <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
@@ -139,6 +151,7 @@ function AppNavigator({ navigationRef }) {
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const navigationRef = useRef(null);
+  const [fontsLoaded] = useFonts({ Caveat_400Regular, Caveat_700Bold });
 
   useEffect(() => {
     openDatabase()
@@ -149,11 +162,14 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  if (!isReady) {
+  if (!isReady || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a2e' }}>
-        <ActivityIndicator size="large" color="#6c63ff" />
-      </View>
+      <LinearGradient
+        colors={['#2d5070', '#3d6b8e']}
+        style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <ActivityIndicator size="large" color="#fff" />
+      </LinearGradient>
     );
   }
 

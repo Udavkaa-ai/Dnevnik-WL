@@ -31,6 +31,7 @@ export async function openDatabase() {
           not_done    TEXT,
           mood_score  INTEGER,
           ai_tip      TEXT,
+          photo_path  TEXT,
           created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
           UNIQUE(user_id, date)
         );
@@ -66,6 +67,7 @@ export async function openDatabase() {
       try { await database.execAsync('ALTER TABLE plans ADD COLUMN recurring_id INTEGER'); } catch (_) {}
       try { await database.execAsync('ALTER TABLE plans ADD COLUMN time_start TEXT'); } catch (_) {}
       try { await database.execAsync('ALTER TABLE plans ADD COLUMN time_end TEXT'); } catch (_) {}
+      try { await database.execAsync('ALTER TABLE entries ADD COLUMN photo_path TEXT'); } catch (_) {}
       try {
         await database.execAsync(`
           CREATE TABLE IF NOT EXISTS recurring_plans (

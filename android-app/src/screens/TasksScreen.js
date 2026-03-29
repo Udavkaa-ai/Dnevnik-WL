@@ -17,7 +17,8 @@ import {
   deleteRecurringTask, materializeRecurringTasks,
 } from '../db/database';
 import { today, addDays, formatDate, formatDateRelative } from '../utils';
-import { useColors } from '../ThemeContext';
+import { useColors, useTheme } from '../ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const WEEK_DAYS = [
   { label: 'Пн', value: 1 }, { label: 'Вт', value: 2 }, { label: 'Ср', value: 3 },
@@ -37,6 +38,7 @@ function recurrenceLabel(type, day) {
 
 export default function TasksScreen() {
   const COLORS = useColors();
+  const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
 
@@ -275,13 +277,26 @@ export default function TasksScreen() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da']}
+      style={{ flex: 1 }}
+    >
+    <View style={{ flex: 1 }}>
       <FlatList
         data={[0]}
         keyExtractor={() => 'root'}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         renderItem={() => (
           <>
+            {/* Header banner */}
+            <LinearGradient
+              colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.headerBanner}
+            >
+              <Text style={styles.bannerTitle}>Задачи</Text>
+            </LinearGradient>
             {/* Overdue */}
             {overduePending.length > 0 && (
               <View style={styles.section}>
@@ -743,16 +758,29 @@ export default function TasksScreen() {
         </Pressable>
       </Modal>
     </View>
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
+    headerBanner: {
+      borderRadius: 16, padding: 20, marginBottom: 16,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+    },
+    bannerTitle: {
+      fontSize: 28, color: '#fff',
+      fontFamily: 'Caveat_700Bold',
+    },
     section: { marginBottom: 20 },
     sectionHeader: {
-      fontSize: 13, fontWeight: '700', color: C.textSecondary,
+      fontSize: 14, fontWeight: '700', color: C.textSecondary,
       textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+      fontFamily: 'Caveat_700Bold',
     },
     sectionHeaderOverdue: { color: C.accent },
     sectionHeaderToday: { color: C.primary },

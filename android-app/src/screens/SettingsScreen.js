@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -75,7 +76,7 @@ function TimeInput({ value, onChange, label }) {
 
 export default function SettingsScreen() {
   const COLORS = useColors();
-  const { themePref, setThemePref } = useTheme();
+  const { themePref, setThemePref, isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { startTour } = useOnboarding();
 
@@ -248,7 +249,22 @@ export default function SettingsScreen() {
   if (!user) return null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <LinearGradient
+      colors={isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da']}
+      style={{ flex: 1 }}
+    >
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+
+      {/* Settings header banner */}
+      <LinearGradient
+        colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerBanner}
+      >
+        <Text style={styles.bannerTitle}>Настройки</Text>
+        <Text style={styles.bannerVersion}>Версия 1.2.0</Text>
+      </LinearGradient>
 
       {/* Theme */}
       <View style={styles.section}>
@@ -483,22 +499,38 @@ export default function SettingsScreen() {
 
       {/* Credits */}
       <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-        <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 18 }}>
-          сделано Удавом Каа с помощью Claude
+        <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 }}>
+          Дневник v1.2.0{'\n'}сделано Удавом Каа с помощью Claude
         </Text>
       </View>
     </ScrollView>
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
+    headerBanner: {
+      borderRadius: 16, padding: 20, marginBottom: 20,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+    },
+    bannerTitle: {
+      fontSize: 28, color: '#fff',
+      fontFamily: 'Caveat_700Bold',
+    },
+    bannerVersion: {
+      fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 2,
+    },
     section: { marginBottom: 16 },
     sectionTitle: {
       fontSize: 13, fontWeight: '600', color: C.textSecondary,
       textTransform: 'uppercase', letterSpacing: 0.5,
       marginBottom: 8, paddingHorizontal: 2,
+      fontFamily: 'Caveat_700Bold', fontSize: 14,
     },
     card: { backgroundColor: C.surface, borderRadius: 16, padding: 16, elevation: 2 },
     settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
