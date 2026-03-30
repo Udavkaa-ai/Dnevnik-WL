@@ -122,7 +122,7 @@ async function callAI(apiKey, model, systemMsg, userMsg, maxTokens = 2000) {
   return content;
 }
 
-export async function analyzeGeneral(entries, days, user, apiKey) {
+export async function analyzeGeneral(entries, days, user, apiKey, maxTokens = 2000) {
   const entriesText = formatEntries(entries);
   const profile = formatUserProfile(user);
 
@@ -136,11 +136,12 @@ export async function analyzeGeneral(entries, days, user, apiKey) {
     `2. СООТНОШЕНИЕ СФЕР — работа / семья / личное / отдых\n` +
     `3. ДИНАМИКА НАСТРОЕНИЯ — как менялись оценки\n` +
     `4. СТАБИЛЬНЫЕ ПАТТЕРНЫ — что стабильно делается, что не делается\n` +
-    `5. ГЛАВНЫЙ ВЫВОД — что бросается в глаза больше всего`
+    `5. ГЛАВНЫЙ ВЫВОД — что бросается в глаза больше всего`,
+    maxTokens
   );
 }
 
-export async function analyzePsych(entries, days, user, apiKey) {
+export async function analyzePsych(entries, days, user, apiKey, maxTokens = 5000) {
   const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
@@ -156,11 +157,11 @@ export async function analyzePsych(entries, days, user, apiKey) {
     `3. ЧТО ЗАРЯЖАЕТ, ЧТО СЛИВАЕТ — корреляция оценок с содержанием\n` +
     `4. ПСИХОЛОГИЧЕСКОЕ СОСТОЯНИЕ — общий фон за период\n` +
     `5. 3 КОНКРЕТНЫЕ РЕКОМЕНДАЦИИ — из библиотеки активностей выше`,
-    3000
+    maxTokens
   );
 }
 
-export async function analyzeBalance(entries, user, apiKey) {
+export async function analyzeBalance(entries, user, apiKey, maxTokens = 2000) {
   const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
@@ -176,11 +177,12 @@ export async function analyzeBalance(entries, user, apiKey) {
     `3. ЧТО РАБОТАЕТ — когда оценки выше 7\n` +
     `4. ПРОАКТИВНЫЙ ПЛАН НА НЕДЕЛЮ — 5 конкретных действий.\n` +
     `Каждое действие — отдельной строкой строго в формате:\n` +
-    `ЗАДАЧА: [конкретное действие, 5-10 слов, без скобок]`
+    `ЗАДАЧА: [конкретное действие, 5-10 слов, без скобок]`,
+    maxTokens
   );
 }
 
-export async function analyzeTransactional(entries, user, apiKey) {
+export async function analyzeTransactional(entries, user, apiKey, maxTokens = 5000) {
   const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
@@ -199,7 +201,7 @@ export async function analyzeTransactional(entries, user, apiKey) {
     `7. ПСИХОЛОГИЧЕСКИЕ ПОГЛАЖИВАНИЯ — как человек получает и даёт поглаживания. Соотношение позитивных и негативных. Чего не хватает.\n\n` +
     `8. ЖИЗНЕННАЯ ПОЗИЦИЯ — какая из четырёх позиций доминирует («Я ОК — Ты ОК», «Я не ОК — Ты ОК», «Я ОК — Ты не ОК», «Я не ОК — Ты не ОК»). Обоснование.\n\n` +
     `9. РЕКОМЕНДАЦИИ — 4–5 конкретных шагов для работы с выявленными паттернами, основанных строго на данных выше.`,
-    5000
+    maxTokens
   );
 }
 

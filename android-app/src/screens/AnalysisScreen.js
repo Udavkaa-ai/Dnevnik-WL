@@ -36,11 +36,11 @@ function markdownToPlainText(text) {
 }
 
 const ANALYSES = [
-  { id: 'general7', title: 'Общий анализ (7 дней)', icon: 'analytics-outline', days: 7, type: 'general' },
-  { id: 'general30', title: 'Общий анализ (30 дней)', icon: 'analytics-outline', days: 30, type: 'general' },
-  { id: 'psych', title: 'Психологический анализ', icon: 'heart-outline', days: 14, type: 'psych' },
-  { id: 'balance', title: 'Work-life баланс', icon: 'scale-outline', days: 30, type: 'balance' },
-  { id: 'transactional', title: 'Транзактный анализ', icon: 'people-outline', days: 30, type: 'transactional' },
+  { id: 'general7',  title: 'Общий анализ (7 дней)',  icon: 'analytics-outline', days: 7,  type: 'general',       maxTokens: 1000 },
+  { id: 'general14', title: 'Общий анализ (14 дней)', icon: 'analytics-outline', days: 14, type: 'general',       maxTokens: 2000 },
+  { id: 'psych',     title: 'Психологический анализ', icon: 'heart-outline',     days: 14, type: 'psych',         maxTokens: 5000 },
+  { id: 'balance',   title: 'Work-life баланс',       icon: 'scale-outline',     days: 30, type: 'balance',       maxTokens: 2000 },
+  { id: 'transactional', title: 'Транзактный анализ', icon: 'people-outline',    days: 30, type: 'transactional', maxTokens: 5000 },
 ];
 
 export default function AnalysisScreen({ navigation }) {
@@ -99,10 +99,10 @@ export default function AnalysisScreen({ navigation }) {
         return;
       }
       let result;
-      if (analysis.type === 'general') result = await analyzeGeneral(entries, analysis.days, user, user.openrouter_key);
-      else if (analysis.type === 'psych') result = await analyzePsych(entries, analysis.days, user, user.openrouter_key);
-      else if (analysis.type === 'balance') result = await analyzeBalance(entries, user, user.openrouter_key);
-      else if (analysis.type === 'transactional') result = await analyzeTransactional(entries, user, user.openrouter_key);
+      if (analysis.type === 'general') result = await analyzeGeneral(entries, analysis.days, user, user.openrouter_key, analysis.maxTokens);
+      else if (analysis.type === 'psych') result = await analyzePsych(entries, analysis.days, user, user.openrouter_key, analysis.maxTokens);
+      else if (analysis.type === 'balance') result = await analyzeBalance(entries, user, user.openrouter_key, analysis.maxTokens);
+      else if (analysis.type === 'transactional') result = await analyzeTransactional(entries, user, user.openrouter_key, analysis.maxTokens);
       setResults(prev => ({ ...prev, [analysis.id]: result }));
     } catch (e) {
       Alert.alert('Ошибка AI', e.message);
