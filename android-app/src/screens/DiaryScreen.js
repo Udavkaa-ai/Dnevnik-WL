@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Pressable,
-  ScrollView, Image,
+  ScrollView, Image, TouchableWithoutFeedback,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -227,8 +227,14 @@ export default function DiaryScreen({ navigation }) {
           animationType="slide"
           onRequestClose={() => setSelectedEntry(null)}
         >
-          <Pressable style={styles.modalOverlay} onPress={() => setSelectedEntry(null)}>
-            <Pressable style={styles.modalContent} onPress={() => {}}>
+          <View style={styles.modalOverlay}>
+            {/* Tap backdrop to close */}
+            <TouchableWithoutFeedback onPress={() => setSelectedEntry(null)}>
+              <View style={StyleSheet.absoluteFillObject} />
+            </TouchableWithoutFeedback>
+
+            {/* Modal sheet — plain View so ScrollView works freely */}
+            <View style={styles.modalContent}>
               {selectedEntry && (
                 <>
                   {/* Gradient header — outside ScrollView so always visible */}
@@ -255,7 +261,8 @@ export default function DiaryScreen({ navigation }) {
                   <ScrollView
                     style={{ flex: 1 }}
                     showsVerticalScrollIndicator={true}
-                    contentContainerStyle={{ paddingBottom: 100 }}
+                    contentContainerStyle={{ paddingBottom: 90 }}
+                    keyboardShouldPersistTaps="handled"
                   >
                     {/* Photo — contain so vertical photos aren't cropped */}
                     {selectedEntry.photo_path ? (
@@ -288,20 +295,21 @@ export default function DiaryScreen({ navigation }) {
                     )}
                   </ScrollView>
 
-                  {/* Floating edit FAB */}
+                  {/* Floating edit FAB — outside ScrollView, always visible */}
                   <TouchableOpacity
                     style={styles.floatingEditBtn}
                     onPress={() => {
                       setSelectedEntry(null);
                       navigation.navigate('Entry', { date: selectedEntry.date, editMode: true });
                     }}
+                    activeOpacity={0.85}
                   >
                     <Ionicons name="create" size={22} color="#fff" />
                   </TouchableOpacity>
                 </>
               )}
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       </View>
     </LinearGradient>
@@ -403,15 +411,23 @@ function createStyles(C) {
     calDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.primary, position: 'absolute', bottom: 4 },
     calHint: { fontSize: 11, color: C.textSecondary, textAlign: 'center', marginTop: 12 },
     // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'flex-end',
+    },
     modalContent: {
       backgroundColor: C.surface,
-      borderTopLeftRadius: 28, borderTopRightRadius: 28,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
       height: '88%',
+      overflow: 'visible',
     },
     modalHeaderGradient: {
-      paddingHorizontal: 20, paddingVertical: 20,
-      borderTopLeftRadius: 28, borderTopRightRadius: 28,
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
       overflow: 'hidden',
     },
     modalHeaderRow: {
