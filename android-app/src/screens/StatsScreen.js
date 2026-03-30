@@ -4,8 +4,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getMoodData, getTaskStats } from '../db/database';
-import { useColors } from '../ThemeContext';
+import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
 
 const screenWidth = Dimensions.get('window').width;
@@ -26,6 +27,7 @@ function StatBox({ label, value, suffix = '', color, textColor }) {
 
 export default function StatsScreen() {
   const COLORS = useColors();
+  const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
 
@@ -67,7 +69,11 @@ export default function StatsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+    <LinearGradient
+      colors={isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da']}
+      style={{ flex: 1 }}
+    >
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
       <View style={styles.periodSelector}>
         {[7, 14, 30].map(p => (
           <TouchableOpacity
@@ -157,12 +163,12 @@ export default function StatsScreen() {
         </View>
       )}
     </ScrollView>
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
     periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 16 },
     periodBtn: {
       flex: 1, paddingVertical: 10, borderRadius: 10,
@@ -171,8 +177,16 @@ function createStyles(C) {
     periodBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
     periodBtnText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
     periodBtnTextActive: { color: '#fff' },
-    card: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12, elevation: 2 },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: C.text, marginBottom: 12 },
+    card: {
+      backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12,
+      elevation: 3,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07, shadowRadius: 6,
+    },
+    cardTitle: {
+      fontSize: 20, fontWeight: '600', color: C.text, marginBottom: 12,
+      
+    },
     statsRow: { flexDirection: 'row', marginTop: 12 },
     noDataText: { fontSize: 14, color: C.textSecondary, textAlign: 'center', paddingVertical: 20 },
     completionBar: { height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden' },

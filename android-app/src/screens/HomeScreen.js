@@ -6,9 +6,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getPlansForDate, getOverduePlans, updatePlanStatus, addPlan } from '../db/database';
 import { today, addDays, formatDate } from '../utils';
-import { useColors } from '../ThemeContext';
+import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -79,6 +80,7 @@ function AnimatedTaskRow({ plan, onPress, styles, COLORS }) {
 
 export default function HomeScreen({ navigation }) {
   const COLORS = useColors();
+  const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
 
@@ -192,26 +194,25 @@ export default function HomeScreen({ navigation }) {
 
   const doneCount = todayPlans.filter(p => p.status === 'done').length;
 
+  const gradientBg = isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da'];
+
   return (
+    <LinearGradient colors={gradientBg} style={{ flex: 1 }}>
     <ScrollView
-      style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      contentContainerStyle={{ paddingBottom: 90 }}
     >
-      {/* Header */}
-      <Animated.View style={[styles.header, makeAnimStyle(headerAnim)]}>
-        <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
-        <View style={styles.headerRow}>
+      {/* Compact header bar */}
+      <Animated.View style={makeAnimStyle(headerAnim)}>
+        <LinearGradient
+          colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerBanner}
+        >
+          <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
           <Text style={styles.greeting}>Сегодня</Text>
-          <TouchableOpacity
-            ref={registerRef('homeEntryBtn')}
-            collapsable={false}
-            style={styles.diaryBtn}
-            onPress={() => navigation.navigate('Entry', { date: todayStr })}
-          >
-            <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-            <Text style={styles.diaryBtnText}>Итог дня</Text>
-          </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </Animated.View>
 
       {/* AI Analysis button */}
@@ -369,44 +370,81 @@ export default function HomeScreen({ navigation }) {
         </Pressable>
       </Modal>
     </ScrollView>
+
+    {/* FAB — Итог дня */}
+    <TouchableOpacity
+      ref={registerRef('homeEntryBtn')}
+      collapsable={false}
+      style={styles.fab}
+      onPress={() => navigation.navigate('Entry', { date: todayStr })}
+      activeOpacity={0.85}
+    >
+      <LinearGradient
+        colors={['#4a7fa8', '#2d5070']}
+        style={styles.fabGradient}
+      >
+        <Ionicons name="create-outline" size={22} color="#fff" />
+        <Text style={styles.fabText}>Итог дня</Text>
+      </LinearGradient>
+    </TouchableOpacity>
+
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
-    header: {
-      padding: 20, paddingTop: 10, paddingBottom: 12,
-      borderBottomWidth: 2, borderBottomColor: C.notebookLine,
-      marginBottom: 4,
+    headerBanner: {
+      paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12,
+      marginBottom: 12,
     },
-    dateText: { fontSize: 13, color: C.primary, fontStyle: 'italic' },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-    greeting: { fontSize: 26, fontWeight: '700', color: C.text },
-    diaryBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: C.primaryLight, borderRadius: 20,
-      paddingHorizontal: 12, paddingVertical: 6,
-      borderWidth: 1, borderColor: C.notebookLine,
+    dateText: {
+      fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 2,
     },
-    diaryBtnText: { fontSize: 13, color: C.primary, fontWeight: '600' },
+    greeting: {
+      fontSize: 20, fontWeight: '700', color: '#fff',
+    },
+    // FAB
+    fab: {
+      position: 'absolute',
+      bottom: 20,
+      right: 16,
+      borderRadius: 28,
+      elevation: 6,
+      shadowColor: '#2d5070',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.4,
+      shadowRadius: 8,
+    },
+    fabGradient: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 20, paddingVertical: 14,
+      borderRadius: 28,
+    },
+    fabText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-    // Quote card — compact notebook style
+    // Quote card — notebook page style
     quoteCard: {
       backgroundColor: C.surface,
       borderRadius: 10,
-      marginHorizontal: 16, marginTop: 8, marginBottom: 16,
-      borderLeftWidth: 3, borderLeftColor: C.accent,
+      marginHorizontal: 16, marginTop: 4, marginBottom: 16,
+      borderLeftWidth: 4, borderLeftColor: C.accent,
       overflow: 'hidden',
-      elevation: 1,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05, shadowRadius: 4,
+      elevation: 3,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08, shadowRadius: 6,
     },
     notebookLines: { ...StyleSheet.absoluteFillObject },
     notebookLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.notebookLine, opacity: 0.5 },
-    quoteContent: { padding: 10, paddingLeft: 14 },
-    quoteText: { fontSize: 12, color: C.textSecondary, lineHeight: 18, fontStyle: 'italic', marginBottom: 4 },
-    quoteAuthor: { fontSize: 11, color: C.primary, fontWeight: '600' },
+    quoteContent: { padding: 12, paddingLeft: 16, paddingBottom: 14 },
+    quoteText: {
+      fontSize: 14, color: C.text, lineHeight: 21, marginBottom: 6,
+      
+    },
+    quoteAuthor: {
+      fontSize: 13, color: C.primary, fontWeight: '600',
+      
+    },
 
     // Task card
     card: {
@@ -417,7 +455,10 @@ function createStyles(C) {
       borderWidth: 1, borderColor: C.border,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    cardTitle: { fontSize: 16, fontWeight: '700', color: C.text },
+    cardTitle: {
+      fontSize: 18, fontWeight: '700', color: C.text,
+      
+    },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     progressBadge: {
       backgroundColor: C.primaryLight, borderRadius: 12,
@@ -447,7 +488,7 @@ function createStyles(C) {
     analysisCard: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       backgroundColor: C.surface, borderRadius: 14, padding: 16,
-      marginHorizontal: 16, marginBottom: 24,
+      marginHorizontal: 16, marginBottom: 12,
       elevation: 3, borderWidth: 1, borderColor: C.notebookLine,
       shadowColor: C.primary, shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1, shadowRadius: 8,
@@ -458,7 +499,10 @@ function createStyles(C) {
       justifyContent: 'center', alignItems: 'center',
     },
     analysisText: { flex: 1 },
-    analysisTitle: { fontSize: 16, fontWeight: '700', color: C.text },
+    analysisTitle: {
+      fontSize: 17, fontWeight: '700', color: C.text,
+      
+    },
     analysisSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
 
     // Modal

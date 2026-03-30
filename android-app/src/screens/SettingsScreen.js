@@ -1,16 +1,21 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Switch, ActivityIndicator,
+  TextInput, Alert, Switch, ActivityIndicator, Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { getUser, updateUser, exportDiary, importDiary, exportCalendarICS, importCalendarICS } from '../db/database';
 import { scheduleMorningReminder, scheduleEveningReminder, cancelAllReminders, requestPermissions } from '../services/notifications';
+import {
+  getStoredPIN, setBiometricEnabled, getBiometricEnabled, isBiometricAvailable,
+} from '../services/authService';
+import LockScreen from './LockScreen';
 import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
 
@@ -75,7 +80,7 @@ function TimeInput({ value, onChange, label }) {
 
 export default function SettingsScreen() {
   const COLORS = useColors();
-  const { themePref, setThemePref } = useTheme();
+  const { themePref, setThemePref, isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { startTour } = useOnboarding();
 
@@ -88,8 +93,12 @@ export default function SettingsScreen() {
   const [exportingCal, setExportingCal] = useState(false);
   const [importingCal, setImportingCal] = useState(false);
   const [bio, setBio] = useState('');
+  const [pinEnabled, setPinEnabled] = useState(false);
+  const [biometricOn, setBiometricOn] = useState(false);
+  const [biometricAvail, setBiometricAvail] = useState(false);
+  const [lockModal, setLockModal] = useState(null); // 'setup' | 'change' | 'disable'
 
-  useFocusEffect(useCallback(() => { loadUser(); }, []));
+  useFocusEffect(useCallback(() => { loadUser(); loadSecurity(); }, []));
 
   const loadUser = async () => {
     try {
@@ -102,6 +111,30 @@ export default function SettingsScreen() {
     } catch (e) {
       console.log('Settings load error:', e.message);
     }
+  };
+
+  const loadSecurity = async () => {
+    const pin = await getStoredPIN();
+    setPinEnabled(!!pin);
+    const avail = await isBiometricAvailable();
+    setBiometricAvail(avail);
+    if (avail) {
+      const enabled = await getBiometricEnabled();
+      setBiometricOn(enabled);
+    }
+  };
+
+  const handleBiometricToggle = async (value) => {
+    await setBiometricEnabled(value);
+    setBiometricOn(value);
+  };
+
+  const handleLockSuccess = async () => {
+    setLockModal(null);
+    await loadSecurity();
+    if (lockModal === 'setup') Alert.alert('PIN установлен', 'Теперь приложение защищено PIN-кодом');
+    if (lockModal === 'change') Alert.alert('PIN изменён');
+    if (lockModal === 'disable') Alert.alert('PIN отключён', 'Защита снята');
   };
 
   const save = async (fields) => {
@@ -248,7 +281,11 @@ export default function SettingsScreen() {
   if (!user) return null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <LinearGradient
+      colors={isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da']}
+      style={{ flex: 1 }}
+    >
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
 
       {/* Theme */}
       <View style={styles.section}>
@@ -388,6 +425,70 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Security */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Безопасность</Text>
+        <View style={styles.card}>
+          <View style={styles.settingRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingLabel}>PIN-код</Text>
+              <Text style={styles.settingHint}>Защита при открытии приложения</Text>
+            </View>
+            {pinEnabled ? (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.secBtn, { borderColor: COLORS.primary }]}
+                  onPress={() => setLockModal('change')}
+                >
+                  <Text style={[styles.secBtnText, { color: COLORS.primary }]}>Изменить</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.secBtn, { borderColor: '#e55' }]}
+                  onPress={() => setLockModal('disable')}
+                >
+                  <Text style={[styles.secBtnText, { color: '#e55' }]}>Выкл</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.secBtn, { borderColor: COLORS.primary }]}
+                onPress={() => setLockModal('setup')}
+              >
+                <Text style={[styles.secBtnText, { color: COLORS.primary }]}>Включить</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {pinEnabled && biometricAvail && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.settingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>Отпечаток пальца</Text>
+                  <Text style={styles.settingHint}>Входить по биометрии</Text>
+                </View>
+                <Switch
+                  value={biometricOn}
+                  onValueChange={handleBiometricToggle}
+                  trackColor={{ true: COLORS.primary }}
+                />
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* PIN modal */}
+      <Modal visible={!!lockModal} animationType="slide" onRequestClose={() => setLockModal(null)}>
+        {lockModal && (
+          <LockScreen
+            mode={lockModal}
+            onSuccess={handleLockSuccess}
+            onCancel={() => setLockModal(null)}
+          />
+        )}
+      </Modal>
+
       {/* Export */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Данные</Text>
@@ -483,17 +584,17 @@ export default function SettingsScreen() {
 
       {/* Credits */}
       <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-        <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 18 }}>
-          сделано Удавом Каа с помощью Claude
+        <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 }}>
+          Дневник v1.2.0{'\n'}сделано Удавом Каа с помощью Claude
         </Text>
       </View>
     </ScrollView>
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
     section: { marginBottom: 16 },
     sectionTitle: {
       fontSize: 13, fontWeight: '600', color: C.textSecondary,
@@ -542,5 +643,10 @@ function createStyles(C) {
       padding: 12, fontSize: 14, color: C.text,
       minHeight: 90, textAlignVertical: 'top',
     },
+    secBtn: {
+      paddingHorizontal: 14, paddingVertical: 8,
+      borderRadius: 10, borderWidth: 1,
+    },
+    secBtnText: { fontSize: 13, fontWeight: '600' },
   });
 }

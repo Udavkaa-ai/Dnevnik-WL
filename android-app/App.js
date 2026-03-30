@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity, Animated, AppState, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { openDatabase } from './src/db/database';
+import { getStoredPIN } from './src/services/authService';
+import LockScreen from './src/screens/LockScreen';
 import { ThemeProvider, useColors, useTheme } from './src/ThemeContext';
 import { OnboardingProvider } from './src/context/OnboardingContext';
 import OnboardingOverlay from './src/components/OnboardingOverlay';
@@ -65,25 +68,19 @@ function HomeTabs() {
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
         },
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarActiveTintColor: '#4caf50',
         tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.notebookLine || COLORS.border,
-          borderTopWidth: 2,
+          backgroundColor: isDark ? '#1e1c2c' : '#fffef8',
+          borderTopColor: isDark ? '#2a3d52' : '#c5d8ea',
+          borderTopWidth: 1.5,
           paddingBottom: 6,
           paddingTop: 4,
           height: 64,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         tabBarButton: (props) => <AnimatedTabButton {...props} />,
-        headerStyle: {
-          backgroundColor: COLORS.surface,
-          borderBottomWidth: 2,
-          borderBottomColor: COLORS.notebookLine || COLORS.border,
-        },
-        headerTintColor: COLORS.text,
-        headerTitleStyle: { fontWeight: '700' },
+        headerShown: false,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная', headerTitle: 'Дневник' }} />
@@ -94,9 +91,10 @@ function HomeTabs() {
         name="MoreTab"
         component={SettingsScreen}
         options={{
-          title: 'Ещё',
+          title: 'Настройки',
+          headerTitle: 'Настройки',
           tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons name={focused ? 'ellipsis-horizontal-circle' : 'ellipsis-horizontal-circle-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -110,13 +108,20 @@ function AppNavigator({ navigationRef }) {
 
   return (
     <>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
-            headerStyle: { backgroundColor: COLORS.surface },
-            headerTintColor: COLORS.text,
-            headerTitleStyle: { fontWeight: '700' },
+            headerBackground: () => (
+              <LinearGradient
+                colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ flex: 1 }}
+              />
+            ),
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: '700', fontSize: 18 },
           }}
         >
           <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
@@ -138,22 +143,45 @@ function AppNavigator({ navigationRef }) {
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
+  // null = still checking; true = locked; false = unlocked
+  const [isLocked, setIsLocked] = useState(null);
   const navigationRef = useRef(null);
+  const appState = useRef(AppState.currentState);
 
   useEffect(() => {
-    openDatabase()
-      .catch(console.error)
-      .finally(() => setIsReady(true));
+    const init = async () => {
+      try { await openDatabase(); } catch (e) { console.error(e); }
+      const pin = await getStoredPIN();
+      setIsLocked(!!pin);
+      setIsReady(true);
+    };
+    init();
 
     const sub = Notifications.addNotificationResponseReceivedListener(() => {});
     return () => sub.remove();
   }, []);
 
-  if (!isReady) {
+  // Lock when app returns from background
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (nextState) => {
+      const wasBackground = appState.current.match(/inactive|background/);
+      if (wasBackground && nextState === 'active') {
+        const pin = await getStoredPIN();
+        if (pin) setIsLocked(true);
+      }
+      appState.current = nextState;
+    });
+    return () => sub.remove();
+  }, []);
+
+  if (!isReady || isLocked === null) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a2e' }}>
-        <ActivityIndicator size="large" color="#6c63ff" />
-      </View>
+      <LinearGradient
+        colors={['#2d5070', '#3d6b8e']}
+        style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <ActivityIndicator size="large" color="#fff" />
+      </LinearGradient>
     );
   }
 
@@ -162,6 +190,11 @@ export default function App() {
       <OnboardingProvider navigationRef={navigationRef}>
         <AppNavigator navigationRef={navigationRef} />
         <OnboardingOverlay />
+        {isLocked && (
+          <View style={StyleSheet.absoluteFill}>
+            <LockScreen mode="unlock" onSuccess={() => setIsLocked(false)} />
+          </View>
+        )}
       </OnboardingProvider>
     </ThemeProvider>
   );

@@ -1,16 +1,16 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Pressable,
-  ScrollView, TextInput, Alert,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal,
+  ScrollView, Image, TouchableWithoutFeedback,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getAllEntries } from '../db/database';
-import { formatDateFull, moodColor, moodEmoji, today, addDays } from '../utils';
-import { useColors } from '../ThemeContext';
+import { formatDateFull, moodColor, moodEmoji, today } from '../utils';
+import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
 
-// Build a simple calendar for date selection (current month + prev months)
 function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
@@ -19,7 +19,7 @@ function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
   const todayDate = new Date(todayStr + 'T00:00:00');
 
   const [year, setYear] = useState(todayDate.getFullYear());
-  const [month, setMonth] = useState(todayDate.getMonth()); // 0-indexed
+  const [month, setMonth] = useState(todayDate.getMonth());
 
   const changeMonth = (delta) => {
     let m = month + delta;
@@ -33,8 +33,7 @@ function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
   const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь',
     'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 
-  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
-  // Convert to Mon-first: 0=Mon
+  const firstDay = new Date(year, month, 1).getDay();
   const startOffset = (firstDay + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -84,19 +83,11 @@ function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
               return (
                 <TouchableOpacity
                   key={dateStr}
-                  style={[
-                    styles.calCell,
-                    isToday && styles.calCellToday,
-                    isFuture && styles.calCellDisabled,
-                  ]}
+                  style={[styles.calCell, isToday && styles.calCellToday, isFuture && styles.calCellDisabled]}
                   onPress={() => { if (!isFuture) { onSelect(dateStr); onClose(); } }}
                   disabled={isFuture}
                 >
-                  <Text style={[
-                    styles.calDayText,
-                    isToday && styles.calDayToday,
-                    isFuture && styles.calDayDisabled,
-                  ]}>
+                  <Text style={[styles.calDayText, isToday && styles.calDayToday, isFuture && styles.calDayDisabled]}>
                     {day}
                   </Text>
                   {hasEntry && <View style={[styles.calDot, isToday && { backgroundColor: '#fff' }]} />}
@@ -116,6 +107,7 @@ function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
 
 export default function DiaryScreen({ navigation }) {
   const COLORS = useColors();
+  const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
 
@@ -134,157 +126,277 @@ export default function DiaryScreen({ navigation }) {
     navigation.navigate('Entry', { date: dateStr, editMode: hasEntry });
   };
 
-  const renderEntry = ({ item }) => (
-    <TouchableOpacity style={styles.entryCard} onPress={() => setSelectedEntry(item)}>
-      <View style={styles.entryLeft}>
-        <View style={[styles.moodCircle, { backgroundColor: moodColor(item.mood_score) + '22' }]}>
-          <Text style={styles.moodEmoji}>{moodEmoji(item.mood_score)}</Text>
+  const gradientBg = isDark
+    ? ['#161520', '#1a1830']
+    : ['#f9f5eb', '#ede8da'];
+
+  const renderEntry = ({ item, index }) => {
+    const accent = moodColor(item.mood_score);
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setSelectedEntry(item)}
+      >
+        <View style={[styles.entryCard, { borderLeftColor: accent }]}>
+          {/* Mood badge */}
+          <View style={[styles.moodBadge, { backgroundColor: accent + '22' }]}>
+            <Text style={styles.moodEmoji}>{moodEmoji(item.mood_score)}</Text>
+            {item.mood_score != null && (
+              <Text style={[styles.moodScore, { color: accent }]}>{item.mood_score}</Text>
+            )}
+          </View>
+
+          {/* Content */}
+          <View style={styles.entryContent}>
+            <Text style={styles.entryDate}>{formatDateFull(item.date)}</Text>
+            {item.done ? (
+              <Text style={styles.entryPreview} numberOfLines={2}>{item.done}</Text>
+            ) : null}
+            <View style={styles.entryFooter}>
+              {item.photo_path ? (
+                <View style={styles.photoIndicator}>
+                  <Ionicons name="image-outline" size={12} color={COLORS.primary} />
+                  <Text style={styles.photoIndicatorText}>фото</Text>
+                </View>
+              ) : null}
+              {item.ai_tip ? (
+                <View style={styles.tipIndicator}>
+                  <Ionicons name="bulb-outline" size={12} color={COLORS.textSecondary} />
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Photo thumbnail */}
+          {item.photo_path ? (
+            <Image
+              source={{ uri: item.photo_path }}
+              style={styles.entryThumb}
+              resizeMode="cover"
+            />
+          ) : null}
+
+          {/* Decorative corner fold */}
+          <View style={styles.cornerFold} />
         </View>
-      </View>
-      <View style={styles.entryRight}>
-        <View style={styles.entryHeader}>
-          <Text style={styles.entryDate}>{formatDateFull(item.date)}</Text>
-          {item.mood_score && (
-            <Text style={[styles.entryMood, { color: moodColor(item.mood_score) }]}>
-              {item.mood_score}/10
-            </Text>
-          )}
-        </View>
-        {item.done && (
-          <Text style={styles.entryPreview} numberOfLines={2}>{item.done}</Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View ref={registerRef('diaryList')} collapsable={false} style={styles.container}>
-      <FlatList
-        data={entries}
-        keyExtractor={item => String(item.id)}
-        renderItem={renderEntry}
-        contentContainerStyle={{ padding: 16, paddingBottom: 90 }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="book-outline" size={60} color={COLORS.textSecondary} />
-            <Text style={styles.emptyText}>Пока нет записей</Text>
-            <Text style={styles.emptySubtext}>Нажми на кнопку «Итог дня» на главной или выбери дату через календарь</Text>
-          </View>
-        }
-        ListHeaderComponent={
-          entries.length > 0 ? <Text style={styles.listHeader}>{entries.length} записей</Text> : null
-        }
-      />
+    <LinearGradient colors={gradientBg} style={{ flex: 1 }}>
+      <View ref={registerRef('diaryList')} collapsable={false} style={{ flex: 1 }}>
+        <FlatList
+          data={entries}
+          keyExtractor={item => String(item.id)}
+          renderItem={renderEntry}
+          contentContainerStyle={{ padding: 16, paddingBottom: 90 }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>📖</Text>
+              <Text style={styles.emptyText}>Страницы пусты</Text>
+              <Text style={styles.emptySubtext}>
+                Нажми на кнопку «Итог дня» на главной или выбери дату через календарь
+              </Text>
+            </View>
+          }
+        />
 
-      {/* FAB — add entry for any date */}
-      <TouchableOpacity style={styles.fab} onPress={() => setCalendarVisible(true)}>
-        <Ionicons name="calendar-outline" size={24} color="#fff" />
-      </TouchableOpacity>
+        {/* FAB */}
+        <TouchableOpacity style={styles.fab} onPress={() => setCalendarVisible(true)}>
+          <LinearGradient
+            colors={['#4a7fa8', '#2d5070']}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="calendar-outline" size={24} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
 
-      {/* Calendar date picker */}
-      <DatePickerModal
-        visible={calendarVisible}
-        onClose={() => setCalendarVisible(false)}
-        onSelect={handleDateSelect}
-        existingDates={existingDates}
-      />
+        {/* Calendar date picker */}
+        <DatePickerModal
+          visible={calendarVisible}
+          onClose={() => setCalendarVisible(false)}
+          onSelect={handleDateSelect}
+          existingDates={existingDates}
+        />
 
-      {/* Entry Detail Modal */}
-      <Modal
-        visible={!!selectedEntry}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedEntry(null)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setSelectedEntry(null)}>
-          <Pressable style={styles.modalContent} onPress={() => {}}>
-            {selectedEntry && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalDate}>{formatDateFull(selectedEntry.date)}</Text>
-                  <TouchableOpacity onPress={() => setSelectedEntry(null)}>
-                    <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+        {/* Entry Detail Modal */}
+        <Modal
+          visible={!!selectedEntry}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setSelectedEntry(null)}
+        >
+          {/* Flex column: thin tappable strip on top, then content fills rest */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }}>
+            <TouchableWithoutFeedback onPress={() => setSelectedEntry(null)}>
+              <View style={{ height: 56 }} />
+            </TouchableWithoutFeedback>
+
+            <View style={styles.modalContent}>
+              {selectedEntry && (
+                <>
+                  {/* Gradient header — outside ScrollView so always visible */}
+                  <LinearGradient
+                    colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+                    style={styles.modalHeaderGradient}
+                  >
+                    <View style={styles.modalHeaderRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.modalDate}>{formatDateFull(selectedEntry.date)}</Text>
+                        {selectedEntry.mood_score && (
+                          <Text style={styles.modalMoodLine}>
+                            {moodEmoji(selectedEntry.mood_score)}  {selectedEntry.mood_score}/10
+                          </Text>
+                        )}
+                      </View>
+                      <TouchableOpacity onPress={() => setSelectedEntry(null)} style={styles.modalCloseBtn}>
+                        <Ionicons name="close" size={22} color="rgba(255,255,255,0.8)" />
+                      </TouchableOpacity>
+                    </View>
+                  </LinearGradient>
+
+                  {/* Scrollable body */}
+                  <ScrollView
+                    style={{ flex: 1 }}
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={{ paddingBottom: 90 }}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {selectedEntry.photo_path ? (
+                      <View style={styles.modalPhotoWrap}>
+                        <Image
+                          source={{ uri: selectedEntry.photo_path }}
+                          style={styles.modalPhoto}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    ) : null}
+
+                    {selectedEntry.done && (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailSectionTitle}>📝 Запись дня</Text>
+                        <Text style={styles.detailSectionText}>{selectedEntry.done}</Text>
+                      </View>
+                    )}
+                    {selectedEntry.not_done && (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailSectionTitle}>📌 Заметка</Text>
+                        <Text style={styles.detailSectionText}>{selectedEntry.not_done}</Text>
+                      </View>
+                    )}
+                    {selectedEntry.ai_tip && (
+                      <View style={[styles.detailSection, styles.tipSection]}>
+                        <Text style={styles.detailSectionTitle}>💡 Совет</Text>
+                        <Text style={styles.detailSectionText}>{selectedEntry.ai_tip}</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+
+                  {/* Floating edit FAB */}
+                  <TouchableOpacity
+                    style={styles.floatingEditBtn}
+                    onPress={() => {
+                      setSelectedEntry(null);
+                      navigation.navigate('Entry', { date: selectedEntry.date, editMode: true });
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="create" size={22} color="#fff" />
                   </TouchableOpacity>
-                </View>
-
-                {selectedEntry.mood_score && (
-                  <View style={[styles.moodBanner, { backgroundColor: moodColor(selectedEntry.mood_score) + '22' }]}>
-                    <Text style={styles.moodBannerEmoji}>{moodEmoji(selectedEntry.mood_score)}</Text>
-                    <Text style={[styles.moodBannerScore, { color: moodColor(selectedEntry.mood_score) }]}>
-                      {selectedEntry.mood_score}/10
-                    </Text>
-                  </View>
-                )}
-
-                {selectedEntry.done && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>📝 Запись дня</Text>
-                    <Text style={styles.detailSectionText}>{selectedEntry.done}</Text>
-                  </View>
-                )}
-                {selectedEntry.not_done && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>📌 Заметка</Text>
-                    <Text style={styles.detailSectionText}>{selectedEntry.not_done}</Text>
-                  </View>
-                )}
-                {selectedEntry.ai_tip && (
-                  <View style={[styles.detailSection, styles.tipSection]}>
-                    <Text style={styles.detailSectionTitle}>💡 Совет</Text>
-                    <Text style={styles.detailSectionText}>{selectedEntry.ai_tip}</Text>
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  style={styles.editBtn}
-                  onPress={() => {
-                    setSelectedEntry(null);
-                    navigation.navigate('Entry', { date: selectedEntry.date, editMode: true });
-                  }}
-                >
-                  <Ionicons name="create-outline" size={18} color={COLORS.primary} />
-                  <Text style={styles.editBtnText}>Редактировать запись</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
-    listHeader: { fontSize: 13, color: C.textSecondary, marginBottom: 12 },
+    // Entry card
     entryCard: {
-      flexDirection: 'row', backgroundColor: C.surface,
-      borderRadius: 14, padding: 14, marginBottom: 10, elevation: 2, gap: 12,
+      flexDirection: 'row',
+      backgroundColor: C.surface,
+      borderRadius: 12,
+      marginBottom: 10,
+      borderLeftWidth: 4,
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      overflow: 'hidden',
+      minHeight: 80,
     },
-    entryLeft: { alignItems: 'center', paddingTop: 2 },
-    moodCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+    moodBadge: {
+      width: 56, alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 12, gap: 2,
+    },
     moodEmoji: { fontSize: 22 },
-    entryRight: { flex: 1 },
-    entryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-    entryDate: { fontSize: 13, color: C.textSecondary, flex: 1 },
-    entryMood: { fontSize: 14, fontWeight: '700' },
-    entryPreview: { fontSize: 14, color: C.text, lineHeight: 20 },
-    empty: { alignItems: 'center', paddingTop: 80 },
-    emptyText: { fontSize: 18, fontWeight: '600', color: C.text, marginTop: 16 },
-    emptySubtext: { fontSize: 14, color: C.textSecondary, marginTop: 6, textAlign: 'center' },
+    moodScore: { fontSize: 12, fontWeight: '700' },
+    entryContent: {
+      flex: 1, paddingVertical: 12, paddingHorizontal: 10,
+      justifyContent: 'center',
+    },
+    entryDate: {
+      fontSize: 14, color: C.textSecondary,
+       marginBottom: 3,
+    },
+    entryPreview: {
+      fontSize: 14, color: C.text, lineHeight: 20,
+    },
+    entryFooter: {
+      flexDirection: 'row', gap: 8, marginTop: 6, alignItems: 'center',
+    },
+    photoIndicator: {
+      flexDirection: 'row', alignItems: 'center', gap: 3,
+    },
+    photoIndicatorText: {
+      fontSize: 11, color: C.primary,
+    },
+    tipIndicator: {
+      alignItems: 'center',
+    },
+    entryThumb: {
+      width: 72, height: '100%', borderTopRightRadius: 12, borderBottomRightRadius: 12,
+    },
+    cornerFold: {
+      position: 'absolute', top: 0, right: 0,
+      width: 0, height: 0,
+      borderTopWidth: 16, borderRightWidth: 16,
+      borderTopColor: C.notebookLine, borderRightColor: C.background,
+      borderLeftWidth: 0, borderBottomWidth: 0,
+    },
+    // Empty state
+    empty: { alignItems: 'center', paddingTop: 60 },
+    emptyIcon: { fontSize: 60 },
+    emptyText: {
+      fontSize: 20, fontWeight: '600', color: C.text, marginTop: 12,
+      
+    },
+    emptySubtext: {
+      fontSize: 14, color: C.textSecondary, marginTop: 8,
+      textAlign: 'center', lineHeight: 20,
+    },
+    // FAB
     fab: {
       position: 'absolute', bottom: 24, right: 24,
       width: 56, height: 56, borderRadius: 28,
-      backgroundColor: C.primary,
-      justifyContent: 'center', alignItems: 'center',
-      elevation: 6, shadowColor: C.primary,
+      elevation: 8,
+      shadowColor: '#3d6b8e',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.4, shadowRadius: 8,
     },
+    fabGradient: {
+      width: 56, height: 56, borderRadius: 28,
+      justifyContent: 'center', alignItems: 'center',
+    },
     // Calendar
     calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-    calMonthLabel: { fontSize: 17, fontWeight: '700', color: C.text },
+    calMonthLabel: { fontSize: 17, fontWeight: '700', color: C.text, fontFamily: 'Caveat_700Bold' },
     calWeekRow: { flexDirection: 'row', marginBottom: 6 },
     calWeekDay: { flex: 1, textAlign: 'center', fontSize: 12, color: C.textSecondary, fontWeight: '600' },
     calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -297,25 +409,64 @@ function createStyles(C) {
     calDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.primary, position: 'absolute', bottom: 4 },
     calHint: { fontSize: 11, color: C.textSecondary, textAlign: 'center', marginTop: 12 },
     // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: {
+      flex: 1,
       backgroundColor: C.surface,
-      borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      padding: 24, paddingBottom: 40, maxHeight: '85%',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
     },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    modalDate: { fontSize: 16, fontWeight: '600', color: C.text, flex: 1 },
-    moodBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12, padding: 14, marginBottom: 16 },
-    moodBannerEmoji: { fontSize: 28 },
-    moodBannerScore: { fontSize: 22, fontWeight: '700' },
-    detailSection: { marginBottom: 16 },
-    detailSectionTitle: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6 },
-    detailSectionText: { fontSize: 15, color: C.text, lineHeight: 22 },
-    tipSection: { backgroundColor: C.primaryLight, borderRadius: 12, padding: 14 },
-    editBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center',
-      paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.border, marginTop: 8,
+    modalHeaderGradient: {
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      overflow: 'hidden',
     },
-    editBtnText: { fontSize: 15, color: C.primary, fontWeight: '500' },
+    modalHeaderRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    },
+    modalDate: {
+      fontSize: 22, fontWeight: '700', color: '#fff',
+      
+    },
+    modalMoodLine: {
+      fontSize: 16, color: 'rgba(255,255,255,0.85)', marginTop: 4,
+      
+    },
+    modalCloseBtn: {
+      padding: 4,
+    },
+    modalPhotoWrap: {
+      backgroundColor: '#000',
+      width: '100%',
+      maxHeight: 320,
+      justifyContent: 'center',
+    },
+    modalPhoto: {
+      width: '100%',
+      height: 300,
+    },
+    detailSection: { marginBottom: 16, paddingHorizontal: 20, paddingTop: 16 },
+    detailSectionTitle: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 8 },
+    detailSectionText: {
+      fontSize: 15, color: C.text, lineHeight: 22,
+    },
+    tipSection: { backgroundColor: C.primaryLight, borderRadius: 12, marginHorizontal: 20, paddingHorizontal: 14 },
+    floatingEditBtn: {
+      position: 'absolute',
+      bottom: 20,
+      right: 20,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: C.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 6,
+      shadowColor: C.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
+    },
   });
 }

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Дневник",
     "slug": "dnevnik-app",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -22,16 +22,29 @@
         "backgroundColor": "#0d5c70"
       },
       "package": "com.dnevnik.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "SCHEDULE_EXACT_ALARM",
-        "USE_EXACT_ALARM"
+        "USE_EXACT_ALARM",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "plugins": [
       "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Разреши доступ к фото для прикрепления к записям.",
+          "cameraPermission": "Разреши доступ к камере для съёмки фото к записям."
+        }
+      ],
       [
         "expo-build-properties",
         {

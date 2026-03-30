@@ -17,7 +17,8 @@ import {
   deleteRecurringTask, materializeRecurringTasks,
 } from '../db/database';
 import { today, addDays, formatDate, formatDateRelative } from '../utils';
-import { useColors } from '../ThemeContext';
+import { useColors, useTheme } from '../ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const WEEK_DAYS = [
   { label: 'Пн', value: 1 }, { label: 'Вт', value: 2 }, { label: 'Ср', value: 3 },
@@ -37,6 +38,7 @@ function recurrenceLabel(type, day) {
 
 export default function TasksScreen() {
   const COLORS = useColors();
+  const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
 
@@ -275,7 +277,11 @@ export default function TasksScreen() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da']}
+      style={{ flex: 1 }}
+    >
+    <View style={{ flex: 1 }}>
       <FlatList
         data={[0]}
         keyExtractor={() => 'root'}
@@ -743,16 +749,17 @@ export default function TasksScreen() {
         </Pressable>
       </Modal>
     </View>
+    </LinearGradient>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
     section: { marginBottom: 20 },
     sectionHeader: {
-      fontSize: 13, fontWeight: '700', color: C.textSecondary,
+      fontSize: 14, fontWeight: '700', color: C.textSecondary,
       textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+      
     },
     sectionHeaderOverdue: { color: C.accent },
     sectionHeaderToday: { color: C.primary },
