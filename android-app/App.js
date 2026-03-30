@@ -78,16 +78,7 @@ function HomeTabs() {
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         tabBarButton: (props) => <AnimatedTabButton {...props} />,
-        headerBackground: () => (
-          <LinearGradient
-            colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ flex: 1 }}
-          />
-        ),
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+        headerShown: false,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная', headerTitle: 'Дневник' }} />

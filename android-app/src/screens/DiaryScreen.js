@@ -228,7 +228,7 @@ export default function DiaryScreen({ navigation }) {
           onRequestClose={() => setSelectedEntry(null)}
         >
           <Pressable style={styles.modalOverlay} onPress={() => setSelectedEntry(null)}>
-            <View style={styles.modalContent}>
+            <Pressable style={styles.modalContent} onPress={() => {}}>
               {selectedEntry && (
                 <>
                   {/* Gradient header — outside ScrollView so always visible */}
@@ -300,7 +300,7 @@ export default function DiaryScreen({ navigation }) {
                   </TouchableOpacity>
                 </>
               )}
-            </View>
+            </Pressable>
           </Pressable>
         </Modal>
       </View>
