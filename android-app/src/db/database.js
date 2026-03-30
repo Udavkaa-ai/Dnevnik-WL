@@ -115,18 +115,23 @@ export async function getEntry(date) {
 
 export async function getRecentEntries(days = 14) {
   const db = await openDatabase();
+  const d = new Date();
+  d.setDate(d.getDate() - days + 1);
+  const since = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return await db.getAllAsync(
-    `SELECT * FROM entries WHERE user_id = 1
-     ORDER BY date DESC LIMIT ?`,
-    [days]
+    `SELECT * FROM entries WHERE user_id = 1 AND date >= ? ORDER BY date DESC`,
+    [since]
   );
 }
 
 export async function getRecentEntriesWithPlans(days = 30) {
   const db = await openDatabase();
+  const d = new Date();
+  d.setDate(d.getDate() - days + 1);
+  const since = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const entries = await db.getAllAsync(
-    `SELECT * FROM entries WHERE user_id = 1 ORDER BY date DESC LIMIT ?`,
-    [days]
+    `SELECT * FROM entries WHERE user_id = 1 AND date >= ? ORDER BY date DESC`,
+    [since]
   );
   if (entries.length === 0) return [];
 

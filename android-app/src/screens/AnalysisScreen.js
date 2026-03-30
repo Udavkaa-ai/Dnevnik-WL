@@ -38,8 +38,8 @@ function markdownToPlainText(text) {
 const ANALYSES = [
   { id: 'general7',  title: 'Общий анализ (7 дней)',  icon: 'analytics-outline', days: 7,  type: 'general',       maxTokens: 1000 },
   { id: 'general14', title: 'Общий анализ (14 дней)', icon: 'analytics-outline', days: 14, type: 'general',       maxTokens: 2000 },
-  { id: 'psych',     title: 'Психологический анализ', icon: 'heart-outline',     days: 14, type: 'psych',         maxTokens: 5000 },
-  { id: 'balance',   title: 'Work-life баланс',       icon: 'scale-outline',     days: 30, type: 'balance',       maxTokens: 2000 },
+  { id: 'psych',     title: 'Психологический анализ', icon: 'heart-outline',     days: 30, type: 'psych',         maxTokens: 5000 },
+  { id: 'balance',   title: 'Work-life баланс',       icon: 'scale-outline',     days: 30, type: 'balance',       maxTokens: 5000 },
   { id: 'transactional', title: 'Транзактный анализ', icon: 'people-outline',    days: 30, type: 'transactional', maxTokens: 5000 },
 ];
 
