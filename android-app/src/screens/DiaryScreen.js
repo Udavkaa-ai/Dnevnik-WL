@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Pressable,
   ScrollView, Image, TouchableWithoutFeedback,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -46,8 +46,8 @@ function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={styles.modalContent} onPress={() => {}}>
+      <Pressable style={styles.calOverlay} onPress={onClose}>
+        <Pressable style={styles.calCard} onPress={() => {}}>
           <View style={styles.calHeader}>
             <TouchableOpacity onPress={() => changeMonth(-1)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="chevron-back" size={22} color={COLORS.primary} />
@@ -104,6 +104,7 @@ function DatePickerModal({ visible, onClose, onSelect, existingDates }) {
     </Modal>
   );
 }
+
 
 export default function DiaryScreen({ navigation }) {
   const COLORS = useColors();
@@ -394,7 +395,15 @@ function createStyles(C) {
       width: 56, height: 56, borderRadius: 28,
       justifyContent: 'center', alignItems: 'center',
     },
-    // Calendar
+    // Calendar modal
+    calOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'center', alignItems: 'center',
+    },
+    calCard: {
+      backgroundColor: C.surface, borderRadius: 20,
+      padding: 20, width: '90%', maxWidth: 380,
+    },
     calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
     calMonthLabel: { fontSize: 17, fontWeight: '700', color: C.text, fontFamily: 'Caveat_700Bold' },
     calWeekRow: { flexDirection: 'row', marginBottom: 6 },
