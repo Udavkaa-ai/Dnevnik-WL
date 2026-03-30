@@ -68,6 +68,7 @@ export async function openDatabase() {
       try { await database.execAsync('ALTER TABLE plans ADD COLUMN time_start TEXT'); } catch (_) {}
       try { await database.execAsync('ALTER TABLE plans ADD COLUMN time_end TEXT'); } catch (_) {}
       try { await database.execAsync('ALTER TABLE entries ADD COLUMN photo_path TEXT'); } catch (_) {}
+      try { await database.execAsync('ALTER TABLE plans ADD COLUMN reminder_minutes INTEGER DEFAULT 0'); } catch (_) {}
       try {
         await database.execAsync(`
           CREATE TABLE IF NOT EXISTS recurring_plans (
@@ -237,11 +238,11 @@ export async function getOverduePlans() {
   );
 }
 
-export async function addPlan(date, taskText, timeStart = null, timeEnd = null) {
+export async function addPlan(date, taskText, timeStart = null, timeEnd = null, reminderMinutes = 0) {
   const db = await openDatabase();
   const result = await db.runAsync(
-    'INSERT INTO plans (user_id, plan_date, task_text, time_start, time_end) VALUES (1, ?, ?, ?, ?)',
-    [date, taskText, timeStart || null, timeEnd || null]
+    'INSERT INTO plans (user_id, plan_date, task_text, time_start, time_end, reminder_minutes) VALUES (1, ?, ?, ?, ?, ?)',
+    [date, taskText, timeStart || null, timeEnd || null, reminderMinutes || 0]
   );
   return result.lastInsertRowId;
 }
@@ -303,11 +304,11 @@ export async function deletePlan(id) {
   await db.runAsync('DELETE FROM plans WHERE id = ?', [id]);
 }
 
-export async function updatePlan(id, taskText, planDate, timeStart = null, timeEnd = null) {
+export async function updatePlan(id, taskText, planDate, timeStart = null, timeEnd = null, reminderMinutes = 0) {
   const db = await openDatabase();
   await db.runAsync(
-    'UPDATE plans SET task_text = ?, plan_date = ?, time_start = ?, time_end = ? WHERE id = ?',
-    [taskText, planDate, timeStart || null, timeEnd || null, id]
+    'UPDATE plans SET task_text = ?, plan_date = ?, time_start = ?, time_end = ?, reminder_minutes = ? WHERE id = ?',
+    [taskText, planDate, timeStart || null, timeEnd || null, reminderMinutes || 0, id]
   );
 }
 

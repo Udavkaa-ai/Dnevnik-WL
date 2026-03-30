@@ -19,6 +19,8 @@ import {
 import { today, addDays, formatDate, formatDateRelative } from '../utils';
 import { useColors, useTheme } from '../ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import TimePickerModal from '../components/TimePicker';
+import { scheduleTaskReminder, cancelTaskReminder } from '../services/notifications';
 
 const WEEK_DAYS = [
   { label: 'Пн', value: 1 }, { label: 'Вт', value: 2 }, { label: 'Ср', value: 3 },
@@ -65,6 +67,12 @@ export default function TasksScreen() {
   const [editShowTime, setEditShowTime] = useState(false);
   const [editTimeStart, setEditTimeStart] = useState('');
   const [editTimeEnd, setEditTimeEnd] = useState('');
+
+  // ── Time picker modal ──────────────────────────────────────────────────────
+  const [timePickerVisible, setTimePickerVisible] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState(null); // 'newStart'|'newEnd'|'editStart'|'editEnd'
+  const [newTaskReminderMins, setNewTaskReminderMins] = useState(0);
+  const [editReminderMins, setEditReminderMins] = useState(0);
 
   // ── Add/edit recurring task modal ─────────────────────────────────────────
   const [recurringModalVisible, setRecurringModalVisible] = useState(false);
@@ -135,12 +143,16 @@ export default function TasksScreen() {
       ? newTaskTimeStart.trim() : null;
     const timeEnd = newTaskShowTime && /^\d{1,2}:\d{2}$/.test(newTaskTimeEnd.trim())
       ? newTaskTimeEnd.trim() : null;
-    await addPlan(newTaskDate, newTaskText.trim(), timeStart, timeEnd);
+    const id = await addPlan(newTaskDate, newTaskText.trim(), timeStart, timeEnd, newTaskReminderMins);
+    if (timeStart && newTaskReminderMins > 0 && newTaskDate !== 'undated') {
+      await scheduleTaskReminder(id, newTaskDate, timeStart, newTaskReminderMins, newTaskText.trim());
+    }
     setNewTaskText('');
     setNewTaskDate(addDays(today(), 1));
     setNewTaskShowTime(false);
     setNewTaskTimeStart('');
     setNewTaskTimeEnd('');
+    setNewTaskReminderMins(0);
     setAddModalVisible(false);
     loadAll();
   };
@@ -153,7 +165,11 @@ export default function TasksScreen() {
       ? editTimeStart.trim() : null;
     const timeEnd = editShowTime && /^\d{1,2}:\d{2}$/.test(editTimeEnd.trim())
       ? editTimeEnd.trim() : null;
-    await updatePlan(editingTaskId, editText.trim(), editDate, timeStart, timeEnd);
+    await updatePlan(editingTaskId, editText.trim(), editDate, timeStart, timeEnd, editReminderMins);
+    await cancelTaskReminder(editingTaskId);
+    if (timeStart && editReminderMins > 0 && editDate !== 'undated') {
+      await scheduleTaskReminder(editingTaskId, editDate, timeStart, editReminderMins, editText.trim());
+    }
     setEditModalVisible(false);
     setEditingTaskId(null);
     loadAll();
@@ -166,6 +182,7 @@ export default function TasksScreen() {
     setEditTimeStart(task.time_start || '');
     setEditTimeEnd(task.time_end || '');
     setEditShowTime(!!task.time_start);
+    setEditReminderMins(task.reminder_minutes || 0);
     setActionTask(null);
     setEditModalVisible(true);
   };

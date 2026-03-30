@@ -82,3 +82,48 @@ export async function cancelAllReminders() {
 export async function getScheduledNotifications() {
   return await Notifications.getAllScheduledNotificationsAsync();
 }
+
+export async function scheduleTaskReminder(planId, dateStr, timeStr, minutesBefore, taskText) {
+  await cancelTaskReminder(planId);
+  if (!minutesBefore || minutesBefore <= 0) return;
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+  const taskDate = new Date(year, month - 1, day, hour, minute, 0);
+  const reminderDate = new Date(taskDate.getTime() - minutesBefore * 60 * 1000);
+  if (reminderDate <= new Date()) return;
+
+  const label = minutesBefore >= 60
+    ? `через ${minutesBefore / 60} ч`
+    : `через ${minutesBefore} мин`;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: `task-${planId}`,
+    content: {
+      title: `⏰ Задача ${label}`,
+      body: taskText,
+      sound: true,
+      channelId: 'diary-reminders',
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: reminderDate,
+    },
+  });
+}
+
+export async function cancelTaskReminder(planId) {
+  await Notifications.cancelScheduledNotificationAsync(`task-${planId}`).catch(() => {});
+}
+
+export async function notifyAnalysisReady(title) {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🧠 Анализ готов',
+      body: title,
+      sound: true,
+      channelId: 'diary-reminders',
+    },
+    trigger: null,
+  });
+}
