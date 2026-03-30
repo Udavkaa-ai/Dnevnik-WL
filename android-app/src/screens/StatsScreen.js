@@ -188,7 +188,7 @@ function createStyles(C) {
     },
     bannerTitle: {
       fontSize: 28, color: '#fff',
-      fontFamily: 'Caveat_700Bold',
+      
     },
     periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 16 },
     periodBtn: {
@@ -206,7 +206,7 @@ function createStyles(C) {
     },
     cardTitle: {
       fontSize: 20, fontWeight: '600', color: C.text, marginBottom: 12,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     statsRow: { flexDirection: 'row', marginTop: 12 },
     noDataText: { fontSize: 14, color: C.textSecondary, textAlign: 'center', paddingVertical: 20 },

@@ -774,13 +774,13 @@ function createStyles(C) {
     },
     bannerTitle: {
       fontSize: 28, color: '#fff',
-      fontFamily: 'Caveat_700Bold',
+      
     },
     section: { marginBottom: 20 },
     sectionHeader: {
       fontSize: 14, fontWeight: '700', color: C.textSecondary,
       textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     sectionHeaderOverdue: { color: C.accent },
     sectionHeaderToday: { color: C.primary },

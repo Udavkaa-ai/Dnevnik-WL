@@ -245,7 +245,7 @@ export default function DiaryScreen({ navigation }) {
           <Pressable style={styles.modalOverlay} onPress={() => setSelectedEntry(null)}>
             <Pressable style={styles.modalContent} onPress={() => {}}>
               {selectedEntry && (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={true} bounces={true} contentContainerStyle={{ paddingBottom: 16 }}>
                   {/* Modal gradient header */}
                   <LinearGradient
                     colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
@@ -329,7 +329,7 @@ function createStyles(C) {
       shadowRadius: 8,
     },
     bannerTitle: {
-      fontSize: 32, color: '#fff', fontFamily: 'Caveat_700Bold',
+      fontSize: 32, color: '#fff', 
       letterSpacing: 0.5,
     },
     bannerSubtitle: {
@@ -362,7 +362,7 @@ function createStyles(C) {
     },
     entryDate: {
       fontSize: 14, color: C.textSecondary,
-      fontFamily: 'Caveat_400Regular', marginBottom: 3,
+       marginBottom: 3,
     },
     entryPreview: {
       fontSize: 14, color: C.text, lineHeight: 20,
@@ -394,7 +394,7 @@ function createStyles(C) {
     emptyIcon: { fontSize: 60 },
     emptyText: {
       fontSize: 20, fontWeight: '600', color: C.text, marginTop: 12,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     emptySubtext: {
       fontSize: 14, color: C.textSecondary, marginTop: 8,
@@ -433,7 +433,8 @@ function createStyles(C) {
       backgroundColor: C.surface,
       borderTopLeftRadius: 28, borderTopRightRadius: 28,
       overflow: 'hidden',
-      maxHeight: '90%',
+      maxHeight: '88%',
+      minHeight: 200,
     },
     modalHeaderGradient: {
       paddingHorizontal: 20, paddingVertical: 20,
@@ -443,11 +444,11 @@ function createStyles(C) {
     },
     modalDate: {
       fontSize: 22, fontWeight: '700', color: '#fff',
-      fontFamily: 'Caveat_700Bold',
+      
     },
     modalMoodLine: {
       fontSize: 16, color: 'rgba(255,255,255,0.85)', marginTop: 4,
-      fontFamily: 'Caveat_400Regular',
+      
     },
     modalCloseBtn: {
       padding: 4,
@@ -459,7 +460,6 @@ function createStyles(C) {
     detailSectionTitle: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 8 },
     detailSectionText: {
       fontSize: 15, color: C.text, lineHeight: 22,
-      fontFamily: 'Caveat_400Regular', fontSize: 17,
     },
     tipSection: { backgroundColor: C.primaryLight, borderRadius: 12, marginHorizontal: 20, paddingHorizontal: 14 },
     editBtn: {

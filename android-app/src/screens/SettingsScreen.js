@@ -520,7 +520,7 @@ function createStyles(C) {
     },
     bannerTitle: {
       fontSize: 28, color: '#fff',
-      fontFamily: 'Caveat_700Bold',
+      
     },
     bannerVersion: {
       fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 2,
@@ -530,7 +530,6 @@ function createStyles(C) {
       fontSize: 13, fontWeight: '600', color: C.textSecondary,
       textTransform: 'uppercase', letterSpacing: 0.5,
       marginBottom: 8, paddingHorizontal: 2,
-      fontFamily: 'Caveat_700Bold', fontSize: 14,
     },
     card: { backgroundColor: C.surface, borderRadius: 16, padding: 16, elevation: 2 },
     settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },

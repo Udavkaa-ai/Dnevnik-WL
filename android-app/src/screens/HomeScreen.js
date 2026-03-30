@@ -201,7 +201,7 @@ export default function HomeScreen({ navigation }) {
     <ScrollView
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
     >
-      {/* Gradient header banner */}
+      {/* Compact header bar */}
       <Animated.View style={makeAnimStyle(headerAnim)}>
         <LinearGradient
           colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
@@ -209,9 +209,11 @@ export default function HomeScreen({ navigation }) {
           end={{ x: 1, y: 1 }}
           style={styles.headerBanner}
         >
-          <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
           <View style={styles.headerRow}>
-            <Text style={styles.greeting}>Сегодня</Text>
+            <View>
+              <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
+              <Text style={styles.greeting}>Сегодня</Text>
+            </View>
             <TouchableOpacity
               ref={registerRef('homeEntryBtn')}
               collapsable={false}
@@ -388,17 +390,15 @@ export default function HomeScreen({ navigation }) {
 function createStyles(C) {
   return StyleSheet.create({
     headerBanner: {
-      paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18,
+      paddingHorizontal: 16, paddingVertical: 10,
       marginBottom: 12,
     },
     dateText: {
-      fontSize: 14, color: 'rgba(255,255,255,0.75)',
-      fontFamily: 'Caveat_400Regular',
+      fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 1,
     },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     greeting: {
-      fontSize: 32, fontWeight: '700', color: '#fff',
-      fontFamily: 'Caveat_700Bold',
+      fontSize: 20, fontWeight: '700', color: '#fff',
     },
     diaryBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -425,11 +425,11 @@ function createStyles(C) {
     quoteContent: { padding: 12, paddingLeft: 16, paddingBottom: 14 },
     quoteText: {
       fontSize: 14, color: C.text, lineHeight: 21, marginBottom: 6,
-      fontFamily: 'Caveat_400Regular',
+      
     },
     quoteAuthor: {
       fontSize: 13, color: C.primary, fontWeight: '600',
-      fontFamily: 'Caveat_700Bold',
+      
     },
 
     // Task card
@@ -443,7 +443,7 @@ function createStyles(C) {
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     cardTitle: {
       fontSize: 18, fontWeight: '700', color: C.text,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     progressBadge: {
@@ -487,7 +487,7 @@ function createStyles(C) {
     analysisText: { flex: 1 },
     analysisTitle: {
       fontSize: 17, fontWeight: '700', color: C.text,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     analysisSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
 

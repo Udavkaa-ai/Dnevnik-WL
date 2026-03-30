@@ -448,11 +448,11 @@ function createStyles(C) {
     content: { padding: 20 },
     dateLabel: {
       fontSize: 16, color: C.primary, marginBottom: 8,
-      fontFamily: 'Caveat_400Regular', letterSpacing: 0.3,
+       letterSpacing: 0.3,
     },
     stepTitle: {
       fontSize: 26, fontWeight: '700', color: C.text, marginBottom: 6,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     stepHint: { fontSize: 14, color: C.textSecondary, marginBottom: 16 },
     promptsToggle: {
@@ -492,7 +492,7 @@ function createStyles(C) {
       minHeight: 220,
       maxHeight: 380,
       lineHeight: 26,
-      fontFamily: 'Caveat_400Regular',
+      
     },
     // Photo
     photoSection: { marginBottom: 8 },
@@ -526,7 +526,7 @@ function createStyles(C) {
     moodBtnTextActive: { color: '#fff' },
     moodLabel: {
       fontSize: 18, color: C.text, marginTop: 16, textAlign: 'center',
-      fontFamily: 'Caveat_400Regular',
+      
     },
     actions: {
       flexDirection: 'row', justifyContent: 'flex-end',
@@ -557,7 +557,7 @@ function createStyles(C) {
     doneEmoji: { fontSize: 52, marginBottom: 12 },
     doneTitle: {
       fontSize: 28, fontWeight: '700', color: C.text,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     doneSub: { fontSize: 14, color: C.textSecondary, marginTop: 6, textAlign: 'center' },
     donePhoto: {

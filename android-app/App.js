@@ -6,7 +6,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import { useFonts, Caveat_400Regular, Caveat_700Bold } from '@expo-google-fonts/caveat';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { openDatabase } from './src/db/database';
@@ -88,7 +87,7 @@ function HomeTabs() {
           />
         ),
         headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700', fontFamily: 'Caveat_700Bold', fontSize: 20 },
+        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная', headerTitle: 'Дневник' }} />
@@ -128,7 +127,7 @@ function AppNavigator({ navigationRef }) {
               />
             ),
             headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '700', fontFamily: 'Caveat_700Bold', fontSize: 20 },
+            headerTitleStyle: { fontWeight: '700', fontSize: 18 },
           }}
         >
           <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
@@ -151,8 +150,6 @@ function AppNavigator({ navigationRef }) {
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const navigationRef = useRef(null);
-  const [fontsLoaded] = useFonts({ Caveat_400Regular, Caveat_700Bold });
-
   useEffect(() => {
     openDatabase()
       .catch(console.error)
@@ -162,7 +159,7 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  if (!isReady || !fontsLoaded) {
+  if (!isReady) {
     return (
       <LinearGradient
         colors={['#2d5070', '#3d6b8e']}

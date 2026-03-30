@@ -192,7 +192,7 @@ function createStyles(C) {
     },
     cardTitle: {
       flex: 1, fontSize: 17, fontWeight: '600', color: C.text,
-      fontFamily: 'Caveat_700Bold',
+      
     },
     runBtn: {
       backgroundColor: C.primary, borderRadius: 10,
