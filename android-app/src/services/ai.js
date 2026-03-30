@@ -43,6 +43,30 @@ function formatEntries(entries) {
   ).join('\n');
 }
 
+function formatEntriesRich(entries) {
+  return entries.map(e => {
+    const done = (e.plans || []).filter(p => p.status === 'done').map(p => `  + ${p.task_text}`);
+    const moved = (e.plans || []).filter(p => p.status === 'moved').map(p => `  → ${p.task_text}${p.reason ? ` (причина: ${p.reason})` : ''}${p.moved_to ? ` [перенесено на ${p.moved_to}]` : ''}`);
+    const cancelled = (e.plans || []).filter(p => p.status === 'cancelled').map(p => `  ✗ ${p.task_text}${p.reason ? ` (причина: ${p.reason})` : ''}`);
+    const pending = (e.plans || []).filter(p => p.status === 'pending').map(p => `  ? ${p.task_text}`);
+
+    const detail = (e.done || '').length + (e.not_done || '').length;
+    const detailLevel = detail > 300 ? 'подробная' : detail > 100 ? 'средняя' : detail > 0 ? 'краткая' : 'нет';
+
+    const lines = [
+      `[${e.date}] Оценка: ${e.mood_score || '?'}/10 | Детальность записи: ${detailLevel}`,
+      e.done ? `  Запись "Сделал": ${e.done}` : null,
+      e.not_done ? `  Запись "Не сделал": ${e.not_done}` : null,
+      done.length ? `  Выполненные задачи:\n${done.join('\n')}` : null,
+      moved.length ? `  Перенесённые задачи:\n${moved.join('\n')}` : null,
+      cancelled.length ? `  Отменённые задачи:\n${cancelled.join('\n')}` : null,
+      pending.length ? `  Незакрытые задачи:\n${pending.join('\n')}` : null,
+    ].filter(Boolean);
+
+    return lines.join('\n');
+  }).join('\n\n');
+}
+
 function formatUserProfile(user) {
   if (!user) return '';
   const gender = user.gender === 'male' ? 'Мужчина' : user.gender === 'female' ? 'Женщина' : null;
@@ -60,9 +84,9 @@ function formatUserProfile(user) {
   return profile;
 }
 
-async function callAI(apiKey, model, systemMsg, userMsg) {
+async function callAI(apiKey, model, systemMsg, userMsg, maxTokens = 2000) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 60000);
 
   let response;
   try {
@@ -76,7 +100,7 @@ async function callAI(apiKey, model, systemMsg, userMsg) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1500,
+        max_tokens: maxTokens,
         messages: [
           { role: 'system', content: systemMsg },
           { role: 'user', content: userMsg },
@@ -105,7 +129,7 @@ export async function analyzeGeneral(entries, days, user, apiKey) {
   return callAI(
     apiKey,
     MODEL_HEAVY,
-    `Ты аналитик личного дневника. Анализируй конкретно, только по данным. Пиши по-русски, кратко, без воды.${profile}`,
+    `Ты аналитик личного дневника. Анализируй конкретно, только по данным. Пиши по-русски, кратко, без воды. Весь ответ — не более 400 слов.${profile}`,
     `Записи дневника за ${days} дней:\n${entriesText}\n\n` +
     `Анализ по пунктам:\n\n` +
     `1. ГЛАВНЫЕ ТЕМЫ — что повторялось в записях\n` +
@@ -117,13 +141,13 @@ export async function analyzeGeneral(entries, days, user, apiKey) {
 }
 
 export async function analyzePsych(entries, days, user, apiKey) {
-  const entriesText = formatEntries(entries);
+  const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
   return callAI(
     apiKey,
     MODEL_HEAVY,
-    `Ты психолог-аналитик. Пиши по-русски, конкретно. Не давай общих советов — только то что видно в данных.${profile}`,
+    `Ты психолог-аналитик. Пиши по-русски, конкретно. Не давай общих советов — только то что видно в данных. Весь ответ — не более 700 слов, каждый пункт — не более 150 слов.${profile}`,
     `Дневниковые записи за ${days} дней:\n${entriesText}\n\n` +
     `${ACTIVITY_LIBRARY}\n\n` +
     `Психологический анализ:\n\n` +
@@ -131,18 +155,19 @@ export async function analyzePsych(entries, days, user, apiKey) {
     `2. РАЗРЫВ ПЛАН/РЕАЛЬНОСТЬ — реалистично ли планирование\n` +
     `3. ЧТО ЗАРЯЖАЕТ, ЧТО СЛИВАЕТ — корреляция оценок с содержанием\n` +
     `4. ПСИХОЛОГИЧЕСКОЕ СОСТОЯНИЕ — общий фон за период\n` +
-    `5. 3 КОНКРЕТНЫЕ РЕКОМЕНДАЦИИ — из библиотеки активностей выше`
+    `5. 3 КОНКРЕТНЫЕ РЕКОМЕНДАЦИИ — из библиотеки активностей выше`,
+    3000
   );
 }
 
 export async function analyzeBalance(entries, user, apiKey) {
-  const entriesText = formatEntries(entries);
+  const entriesText = formatEntriesRich(entries);
   const profile = formatUserProfile(user);
 
   return callAI(
     apiKey,
     MODEL_HEAVY,
-    `Ты коуч по work-life балансу. Пиши по-русски. Советы — конкретные, применимые сразу.${profile}`,
+    `Ты коуч по work-life балансу. Пиши по-русски. Советы — конкретные, применимые сразу. Весь ответ — не более 500 слов.${profile}`,
     `Дневниковые записи за 30 дней:\n${entriesText}\n\n` +
     `${ACTIVITY_LIBRARY}\n\n` +
     `Анализ work-life баланса:\n\n` +
@@ -152,6 +177,29 @@ export async function analyzeBalance(entries, user, apiKey) {
     `4. ПРОАКТИВНЫЙ ПЛАН НА НЕДЕЛЮ — 5 конкретных действий.\n` +
     `Каждое действие — отдельной строкой строго в формате:\n` +
     `ЗАДАЧА: [конкретное действие, 5-10 слов, без скобок]`
+  );
+}
+
+export async function analyzeTransactional(entries, user, apiKey) {
+  const entriesText = formatEntriesRich(entries);
+  const profile = formatUserProfile(user);
+
+  return callAI(
+    apiKey,
+    MODEL_HEAVY,
+    `Ты психоаналитик, специалист по транзактному анализу Эрика Берна. Пиши по-русски, глубоко и конкретно — только то, что реально прослеживается в записях. Без общих фраз. Весь ответ — не более 1200 слов, каждый раздел — не более 150 слов.${profile}`,
+    `Дневниковые записи за 30 дней (с задачами по статусам и полным текстом):\n${entriesText}\n\n` +
+    `Проведи глубокий транзактный анализ по следующим разделам:\n\n` +
+    `1. ЭГО-СОСТОЯНИЯ — какие состояния (Родитель, Взрослый, Дитя) доминируют в записях, в каких ситуациях и как проявляются. Конкретные цитаты и примеры.\n\n` +
+    `2. ПОЗИЦИЯ ОПИСАНИЯ — с какой позиции человек описывает события: наблюдатель, участник, жертва, автор. Как меняется в зависимости от темы. Примеры формулировок из записей.\n\n` +
+    `3. ПАТТЕРН ЗАДАЧ — соотношение выполненных / перенесённых / отменённых задач. Что чаще переносится и отменяется — и что это говорит о внутренних конфликтах и запретах. Детальность записей: когда пишет подробно, когда кратко — и почему.\n\n` +
+    `4. ЖИЗНЕННЫЙ СЦЕНАРИЙ — какой сценарий прослеживается: победитель, непобедитель, неудачник. Какие повторяющиеся паттерны подтверждают этот сценарий.\n\n` +
+    `5. ПСИХОЛОГИЧЕСКИЕ ИГРЫ — какие игры по Берну разыгрываются (например: «Да, но...», «Видишь, как я стараюсь», «Если бы не ты»). Конкретные признаки из записей.\n\n` +
+    `6. ДРАЙВЕРЫ И ЗАПРЕТЫ — какие драйверы поведения активны («Будь лучшим», «Торопись», «Старайся», «Радуй других», «Будь сильным»). Как они влияют на ежедневные решения и выбор задач.\n\n` +
+    `7. ПСИХОЛОГИЧЕСКИЕ ПОГЛАЖИВАНИЯ — как человек получает и даёт поглаживания. Соотношение позитивных и негативных. Чего не хватает.\n\n` +
+    `8. ЖИЗНЕННАЯ ПОЗИЦИЯ — какая из четырёх позиций доминирует («Я ОК — Ты ОК», «Я не ОК — Ты ОК», «Я ОК — Ты не ОК», «Я не ОК — Ты не ОК»). Обоснование.\n\n` +
+    `9. РЕКОМЕНДАЦИИ — 4–5 конкретных шагов для работы с выявленными паттернами, основанных строго на данных выше.`,
+    5000
   );
 }
 

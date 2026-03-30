@@ -122,6 +122,32 @@ export async function getRecentEntries(days = 14) {
   );
 }
 
+export async function getRecentEntriesWithPlans(days = 30) {
+  const db = await openDatabase();
+  const entries = await db.getAllAsync(
+    `SELECT * FROM entries WHERE user_id = 1 ORDER BY date DESC LIMIT ?`,
+    [days]
+  );
+  if (entries.length === 0) return [];
+
+  const dates = entries.map(e => e.date);
+  const placeholders = dates.map(() => '?').join(', ');
+  const plans = await db.getAllAsync(
+    `SELECT plan_date, task_text, status, reason, moved_to
+     FROM plans WHERE user_id = 1 AND plan_date IN (${placeholders})
+     ORDER BY plan_date DESC, id ASC`,
+    dates
+  );
+
+  const plansByDate = {};
+  for (const p of plans) {
+    if (!plansByDate[p.plan_date]) plansByDate[p.plan_date] = [];
+    plansByDate[p.plan_date].push(p);
+  }
+
+  return entries.map(e => ({ ...e, plans: plansByDate[e.date] || [] }));
+}
+
 export async function getAllEntries() {
   const db = await openDatabase();
   return await db.getAllAsync(

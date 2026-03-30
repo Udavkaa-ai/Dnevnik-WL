@@ -4,8 +4,8 @@ import {
   ActivityIndicator, Alert, Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getRecentEntries, getUser, addPlans } from '../db/database';
-import { analyzeGeneral, analyzePsych, analyzeBalance } from '../services/ai';
+import { getRecentEntries, getRecentEntriesWithPlans, getUser, addPlans } from '../db/database';
+import { analyzeGeneral, analyzePsych, analyzeBalance, analyzeTransactional } from '../services/ai';
 import { useColors, useTheme } from '../ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import MarkdownText from '../components/MarkdownText';
@@ -40,6 +40,7 @@ const ANALYSES = [
   { id: 'general30', title: 'Общий анализ (30 дней)', icon: 'analytics-outline', days: 30, type: 'general' },
   { id: 'psych', title: 'Психологический анализ', icon: 'heart-outline', days: 14, type: 'psych' },
   { id: 'balance', title: 'Work-life баланс', icon: 'scale-outline', days: 30, type: 'balance' },
+  { id: 'transactional', title: 'Транзактный анализ', icon: 'people-outline', days: 30, type: 'transactional' },
 ];
 
 export default function AnalysisScreen({ navigation }) {
@@ -88,7 +89,10 @@ export default function AnalysisScreen({ navigation }) {
     }
     setLoading(analysis.id);
     try {
-      const entries = await getRecentEntries(analysis.days);
+      const useRich = analysis.type !== 'general';
+      const entries = useRich
+        ? await getRecentEntriesWithPlans(analysis.days)
+        : await getRecentEntries(analysis.days);
       if (entries.length < 2) {
         Alert.alert('Мало данных', `Нужно минимум 2 записи. У тебя: ${entries.length}.`);
         setLoading(null);
@@ -98,6 +102,7 @@ export default function AnalysisScreen({ navigation }) {
       if (analysis.type === 'general') result = await analyzeGeneral(entries, analysis.days, user, user.openrouter_key);
       else if (analysis.type === 'psych') result = await analyzePsych(entries, analysis.days, user, user.openrouter_key);
       else if (analysis.type === 'balance') result = await analyzeBalance(entries, user, user.openrouter_key);
+      else if (analysis.type === 'transactional') result = await analyzeTransactional(entries, user, user.openrouter_key);
       setResults(prev => ({ ...prev, [analysis.id]: result }));
     } catch (e) {
       Alert.alert('Ошибка AI', e.message);
