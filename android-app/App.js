@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity, Animated, AppState, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -9,6 +9,8 @@ import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { openDatabase } from './src/db/database';
+import { getStoredPIN } from './src/services/authService';
+import LockScreen from './src/screens/LockScreen';
 import { ThemeProvider, useColors, useTheme } from './src/ThemeContext';
 import { OnboardingProvider } from './src/context/OnboardingContext';
 import OnboardingOverlay from './src/components/OnboardingOverlay';
@@ -141,17 +143,38 @@ function AppNavigator({ navigationRef }) {
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
+  // null = still checking; true = locked; false = unlocked
+  const [isLocked, setIsLocked] = useState(null);
   const navigationRef = useRef(null);
+  const appState = useRef(AppState.currentState);
+
   useEffect(() => {
-    openDatabase()
-      .catch(console.error)
-      .finally(() => setIsReady(true));
+    const init = async () => {
+      try { await openDatabase(); } catch (e) { console.error(e); }
+      const pin = await getStoredPIN();
+      setIsLocked(!!pin);
+      setIsReady(true);
+    };
+    init();
 
     const sub = Notifications.addNotificationResponseReceivedListener(() => {});
     return () => sub.remove();
   }, []);
 
-  if (!isReady) {
+  // Lock when app returns from background
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (nextState) => {
+      const wasBackground = appState.current.match(/inactive|background/);
+      if (wasBackground && nextState === 'active') {
+        const pin = await getStoredPIN();
+        if (pin) setIsLocked(true);
+      }
+      appState.current = nextState;
+    });
+    return () => sub.remove();
+  }, []);
+
+  if (!isReady || isLocked === null) {
     return (
       <LinearGradient
         colors={['#2d5070', '#3d6b8e']}
@@ -167,6 +190,11 @@ export default function App() {
       <OnboardingProvider navigationRef={navigationRef}>
         <AppNavigator navigationRef={navigationRef} />
         <OnboardingOverlay />
+        {isLocked && (
+          <View style={StyleSheet.absoluteFill}>
+            <LockScreen mode="unlock" onSuccess={() => setIsLocked(false)} />
+          </View>
+        )}
       </OnboardingProvider>
     </ThemeProvider>
   );

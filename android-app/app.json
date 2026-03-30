@@ -30,6 +30,8 @@
         "USE_EXACT_ALARM",
         "CAMERA",
         "READ_MEDIA_IMAGES",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ]
