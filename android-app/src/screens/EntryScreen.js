@@ -145,7 +145,7 @@ export default function EntryScreen({ route, navigation }) {
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ['images'],
           quality: 1,
-          allowsEditing: false,
+          allowsEditing: true,
         });
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -156,7 +156,7 @@ export default function EntryScreen({ route, navigation }) {
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           quality: 1,
-          allowsEditing: false,
+          allowsEditing: true,
         });
       }
 

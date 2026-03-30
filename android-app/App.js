@@ -66,7 +66,7 @@ function HomeTabs() {
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
         },
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarActiveTintColor: '#4caf50',
         tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarStyle: {
           backgroundColor: isDark ? '#1e1c2c' : '#fffef8',
@@ -98,9 +98,10 @@ function HomeTabs() {
         name="MoreTab"
         component={SettingsScreen}
         options={{
-          title: 'Ещё',
+          title: 'Настройки',
+          headerTitle: 'Настройки',
           tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons name={focused ? 'ellipsis-horizontal-circle' : 'ellipsis-horizontal-circle-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
           ),
         }}
       />

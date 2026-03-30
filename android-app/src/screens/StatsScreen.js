@@ -74,15 +74,6 @@ export default function StatsScreen() {
       style={{ flex: 1 }}
     >
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
-      {/* Header banner */}
-      <LinearGradient
-        colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerBanner}
-      >
-        <Text style={styles.bannerTitle}>Статистика</Text>
-      </LinearGradient>
       <View style={styles.periodSelector}>
         {[7, 14, 30].map(p => (
           <TouchableOpacity
@@ -178,18 +169,6 @@ export default function StatsScreen() {
 
 function createStyles(C) {
   return StyleSheet.create({
-    headerBanner: {
-      borderRadius: 16, padding: 20, marginBottom: 16,
-      elevation: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-    },
-    bannerTitle: {
-      fontSize: 28, color: '#fff',
-      
-    },
     periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 16 },
     periodBtn: {
       flex: 1, paddingVertical: 10, borderRadius: 10,

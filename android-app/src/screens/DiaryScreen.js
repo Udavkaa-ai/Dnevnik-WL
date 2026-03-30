@@ -183,20 +183,6 @@ export default function DiaryScreen({ navigation }) {
     );
   };
 
-  const ListHeader = () => (
-    <LinearGradient
-      colors={isDark ? ['#1e2e3d', '#161520'] : ['#3d6b8e', '#2d5070']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.listHeaderBanner}
-    >
-      <Text style={styles.bannerTitle}>Мой дневник</Text>
-      {entries.length > 0 && (
-        <Text style={styles.bannerSubtitle}>{entries.length} {entries.length === 1 ? 'запись' : entries.length < 5 ? 'записи' : 'записей'}</Text>
-      )}
-    </LinearGradient>
-  );
-
   return (
     <LinearGradient colors={gradientBg} style={{ flex: 1 }}>
       <View ref={registerRef('diaryList')} collapsable={false} style={{ flex: 1 }}>
@@ -205,7 +191,6 @@ export default function DiaryScreen({ navigation }) {
           keyExtractor={item => String(item.id)}
           renderItem={renderEntry}
           contentContainerStyle={{ padding: 16, paddingBottom: 90 }}
-          ListHeaderComponent={<ListHeader />}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📖</Text>
@@ -243,16 +228,16 @@ export default function DiaryScreen({ navigation }) {
           onRequestClose={() => setSelectedEntry(null)}
         >
           <Pressable style={styles.modalOverlay} onPress={() => setSelectedEntry(null)}>
-            <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalContent}>
               {selectedEntry && (
-                <ScrollView showsVerticalScrollIndicator={true} bounces={true} contentContainerStyle={{ paddingBottom: 16 }}>
-                  {/* Modal gradient header */}
+                <>
+                  {/* Gradient header — outside ScrollView so always visible */}
                   <LinearGradient
                     colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
                     style={styles.modalHeaderGradient}
                   >
                     <View style={styles.modalHeaderRow}>
-                      <View>
+                      <View style={{ flex: 1 }}>
                         <Text style={styles.modalDate}>{formatDateFull(selectedEntry.date)}</Text>
                         {selectedEntry.mood_score && (
                           <Text style={styles.modalMoodLine}>
@@ -260,56 +245,62 @@ export default function DiaryScreen({ navigation }) {
                           </Text>
                         )}
                       </View>
-                      <TouchableOpacity
-                        onPress={() => setSelectedEntry(null)}
-                        style={styles.modalCloseBtn}
-                      >
+                      <TouchableOpacity onPress={() => setSelectedEntry(null)} style={styles.modalCloseBtn}>
                         <Ionicons name="close" size={22} color="rgba(255,255,255,0.8)" />
                       </TouchableOpacity>
                     </View>
                   </LinearGradient>
 
-                  {/* Photo */}
-                  {selectedEntry.photo_path ? (
-                    <Image
-                      source={{ uri: selectedEntry.photo_path }}
-                      style={styles.modalPhoto}
-                      resizeMode="cover"
-                    />
-                  ) : null}
+                  {/* Scrollable body */}
+                  <ScrollView
+                    style={{ flex: 1 }}
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                  >
+                    {/* Photo — contain so vertical photos aren't cropped */}
+                    {selectedEntry.photo_path ? (
+                      <View style={styles.modalPhotoWrap}>
+                        <Image
+                          source={{ uri: selectedEntry.photo_path }}
+                          style={styles.modalPhoto}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    ) : null}
 
-                  {selectedEntry.done && (
-                    <View style={styles.detailSection}>
-                      <Text style={styles.detailSectionTitle}>📝 Запись дня</Text>
-                      <Text style={styles.detailSectionText}>{selectedEntry.done}</Text>
-                    </View>
-                  )}
-                  {selectedEntry.not_done && (
-                    <View style={styles.detailSection}>
-                      <Text style={styles.detailSectionTitle}>📌 Заметка</Text>
-                      <Text style={styles.detailSectionText}>{selectedEntry.not_done}</Text>
-                    </View>
-                  )}
-                  {selectedEntry.ai_tip && (
-                    <View style={[styles.detailSection, styles.tipSection]}>
-                      <Text style={styles.detailSectionTitle}>💡 Совет</Text>
-                      <Text style={styles.detailSectionText}>{selectedEntry.ai_tip}</Text>
-                    </View>
-                  )}
+                    {selectedEntry.done && (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailSectionTitle}>📝 Запись дня</Text>
+                        <Text style={styles.detailSectionText}>{selectedEntry.done}</Text>
+                      </View>
+                    )}
+                    {selectedEntry.not_done && (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailSectionTitle}>📌 Заметка</Text>
+                        <Text style={styles.detailSectionText}>{selectedEntry.not_done}</Text>
+                      </View>
+                    )}
+                    {selectedEntry.ai_tip && (
+                      <View style={[styles.detailSection, styles.tipSection]}>
+                        <Text style={styles.detailSectionTitle}>💡 Совет</Text>
+                        <Text style={styles.detailSectionText}>{selectedEntry.ai_tip}</Text>
+                      </View>
+                    )}
+                  </ScrollView>
 
+                  {/* Floating edit FAB */}
                   <TouchableOpacity
-                    style={styles.editBtn}
+                    style={styles.floatingEditBtn}
                     onPress={() => {
                       setSelectedEntry(null);
                       navigation.navigate('Entry', { date: selectedEntry.date, editMode: true });
                     }}
                   >
-                    <Ionicons name="create-outline" size={18} color={COLORS.primary} />
-                    <Text style={styles.editBtnText}>Редактировать запись</Text>
+                    <Ionicons name="create" size={22} color="#fff" />
                   </TouchableOpacity>
-                </ScrollView>
+                </>
               )}
-            </Pressable>
+            </View>
           </Pressable>
         </Modal>
       </View>
@@ -319,22 +310,6 @@ export default function DiaryScreen({ navigation }) {
 
 function createStyles(C) {
   return StyleSheet.create({
-    // List header banner
-    listHeaderBanner: {
-      borderRadius: 16, padding: 24, marginBottom: 16,
-      elevation: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-    },
-    bannerTitle: {
-      fontSize: 32, color: '#fff', 
-      letterSpacing: 0.5,
-    },
-    bannerSubtitle: {
-      fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: 4,
-    },
     // Entry card
     entryCard: {
       flexDirection: 'row',
@@ -433,8 +408,8 @@ function createStyles(C) {
       backgroundColor: C.surface,
       borderTopLeftRadius: 28, borderTopRightRadius: 28,
       overflow: 'hidden',
-      maxHeight: '88%',
-      minHeight: 200,
+      height: '88%',
+      position: 'relative',
     },
     modalHeaderGradient: {
       paddingHorizontal: 20, paddingVertical: 20,
@@ -453,8 +428,15 @@ function createStyles(C) {
     modalCloseBtn: {
       padding: 4,
     },
+    modalPhotoWrap: {
+      backgroundColor: '#000',
+      width: '100%',
+      maxHeight: 320,
+      justifyContent: 'center',
+    },
     modalPhoto: {
-      width: '100%', height: 220,
+      width: '100%',
+      height: 300,
     },
     detailSection: { marginBottom: 16, paddingHorizontal: 20, paddingTop: 16 },
     detailSectionTitle: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 8 },
@@ -462,10 +444,21 @@ function createStyles(C) {
       fontSize: 15, color: C.text, lineHeight: 22,
     },
     tipSection: { backgroundColor: C.primaryLight, borderRadius: 12, marginHorizontal: 20, paddingHorizontal: 14 },
-    editBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center',
-      paddingVertical: 18, borderTopWidth: 1, borderTopColor: C.border, marginTop: 8,
+    floatingEditBtn: {
+      position: 'absolute',
+      bottom: 20,
+      right: 20,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: C.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 6,
+      shadowColor: C.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
     },
-    editBtnText: { fontSize: 15, color: C.primary, fontWeight: '500' },
   });
 }

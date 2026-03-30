@@ -255,17 +255,6 @@ export default function SettingsScreen() {
     >
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
 
-      {/* Settings header banner */}
-      <LinearGradient
-        colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerBanner}
-      >
-        <Text style={styles.bannerTitle}>Настройки</Text>
-        <Text style={styles.bannerVersion}>Версия 1.2.0</Text>
-      </LinearGradient>
-
       {/* Theme */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Оформление</Text>
@@ -510,21 +499,6 @@ export default function SettingsScreen() {
 
 function createStyles(C) {
   return StyleSheet.create({
-    headerBanner: {
-      borderRadius: 16, padding: 20, marginBottom: 20,
-      elevation: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-    },
-    bannerTitle: {
-      fontSize: 28, color: '#fff',
-      
-    },
-    bannerVersion: {
-      fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 2,
-    },
     section: { marginBottom: 16 },
     sectionTitle: {
       fontSize: 13, fontWeight: '600', color: C.textSecondary,

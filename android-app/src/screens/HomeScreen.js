@@ -200,6 +200,7 @@ export default function HomeScreen({ navigation }) {
     <LinearGradient colors={gradientBg} style={{ flex: 1 }}>
     <ScrollView
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      contentContainerStyle={{ paddingBottom: 90 }}
     >
       {/* Compact header bar */}
       <Animated.View style={makeAnimStyle(headerAnim)}>
@@ -209,21 +210,8 @@ export default function HomeScreen({ navigation }) {
           end={{ x: 1, y: 1 }}
           style={styles.headerBanner}
         >
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
-              <Text style={styles.greeting}>Сегодня</Text>
-            </View>
-            <TouchableOpacity
-              ref={registerRef('homeEntryBtn')}
-              collapsable={false}
-              style={styles.diaryBtn}
-              onPress={() => navigation.navigate('Entry', { date: todayStr })}
-            >
-              <Ionicons name="create-outline" size={16} color="#fff" />
-              <Text style={styles.diaryBtnText}>Итог дня</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
+          <Text style={styles.greeting}>Сегодня</Text>
         </LinearGradient>
       </Animated.View>
 
@@ -328,7 +316,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Animated.View>
 
-      <View style={{ height: 8 }} />
       {/* Add Task Modal */}
       <Modal
         visible={addModalVisible}
@@ -383,6 +370,24 @@ export default function HomeScreen({ navigation }) {
         </Pressable>
       </Modal>
     </ScrollView>
+
+    {/* FAB — Итог дня */}
+    <TouchableOpacity
+      ref={registerRef('homeEntryBtn')}
+      collapsable={false}
+      style={styles.fab}
+      onPress={() => navigation.navigate('Entry', { date: todayStr })}
+      activeOpacity={0.85}
+    >
+      <LinearGradient
+        colors={['#4a7fa8', '#2d5070']}
+        style={styles.fabGradient}
+      >
+        <Ionicons name="create-outline" size={22} color="#fff" />
+        <Text style={styles.fabText}>Итог дня</Text>
+      </LinearGradient>
+    </TouchableOpacity>
+
     </LinearGradient>
   );
 }
@@ -390,24 +395,33 @@ export default function HomeScreen({ navigation }) {
 function createStyles(C) {
   return StyleSheet.create({
     headerBanner: {
-      paddingHorizontal: 16, paddingVertical: 10,
+      paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12,
       marginBottom: 12,
     },
     dateText: {
-      fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 1,
+      fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 2,
     },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     greeting: {
       fontSize: 20, fontWeight: '700', color: '#fff',
     },
-    diaryBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      borderRadius: 20,
-      paddingHorizontal: 14, paddingVertical: 8,
-      borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    // FAB
+    fab: {
+      position: 'absolute',
+      bottom: 20,
+      right: 16,
+      borderRadius: 28,
+      elevation: 6,
+      shadowColor: '#2d5070',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.4,
+      shadowRadius: 8,
     },
-    diaryBtnText: { fontSize: 14, color: '#fff', fontWeight: '600' },
+    fabGradient: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 20, paddingVertical: 14,
+      borderRadius: 28,
+    },
+    fabText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
     // Quote card — notebook page style
     quoteCard: {

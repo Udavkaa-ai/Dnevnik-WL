@@ -288,15 +288,6 @@ export default function TasksScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         renderItem={() => (
           <>
-            {/* Header banner */}
-            <LinearGradient
-              colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.headerBanner}
-            >
-              <Text style={styles.bannerTitle}>Задачи</Text>
-            </LinearGradient>
             {/* Overdue */}
             {overduePending.length > 0 && (
               <View style={styles.section}>
@@ -764,18 +755,6 @@ export default function TasksScreen() {
 
 function createStyles(C) {
   return StyleSheet.create({
-    headerBanner: {
-      borderRadius: 16, padding: 20, marginBottom: 16,
-      elevation: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-    },
-    bannerTitle: {
-      fontSize: 28, color: '#fff',
-      
-    },
     section: { marginBottom: 20 },
     sectionHeader: {
       fontSize: 14, fontWeight: '700', color: C.textSecondary,
