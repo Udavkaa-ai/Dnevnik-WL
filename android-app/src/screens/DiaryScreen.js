@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Pressable,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal,
   ScrollView, Image, TouchableWithoutFeedback,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -227,13 +227,12 @@ export default function DiaryScreen({ navigation }) {
           animationType="slide"
           onRequestClose={() => setSelectedEntry(null)}
         >
-          <View style={styles.modalOverlay}>
-            {/* Tap backdrop to close */}
+          {/* Flex column: thin tappable strip on top, then content fills rest */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }}>
             <TouchableWithoutFeedback onPress={() => setSelectedEntry(null)}>
-              <View style={StyleSheet.absoluteFillObject} />
+              <View style={{ height: 56 }} />
             </TouchableWithoutFeedback>
 
-            {/* Modal sheet — plain View so ScrollView works freely */}
             <View style={styles.modalContent}>
               {selectedEntry && (
                 <>
@@ -264,7 +263,6 @@ export default function DiaryScreen({ navigation }) {
                     contentContainerStyle={{ paddingBottom: 90 }}
                     keyboardShouldPersistTaps="handled"
                   >
-                    {/* Photo — contain so vertical photos aren't cropped */}
                     {selectedEntry.photo_path ? (
                       <View style={styles.modalPhotoWrap}>
                         <Image
@@ -295,7 +293,7 @@ export default function DiaryScreen({ navigation }) {
                     )}
                   </ScrollView>
 
-                  {/* Floating edit FAB — outside ScrollView, always visible */}
+                  {/* Floating edit FAB */}
                   <TouchableOpacity
                     style={styles.floatingEditBtn}
                     onPress={() => {
@@ -411,18 +409,11 @@ function createStyles(C) {
     calDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.primary, position: 'absolute', bottom: 4 },
     calHint: { fontSize: 11, color: C.textSecondary, textAlign: 'center', marginTop: 12 },
     // Modal
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'flex-end',
-    },
     modalContent: {
+      flex: 1,
       backgroundColor: C.surface,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
-      flex: 1,
-      marginTop: 52,
-      overflow: 'visible',
     },
     modalHeaderGradient: {
       paddingHorizontal: 20,
