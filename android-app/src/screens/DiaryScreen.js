@@ -407,12 +407,12 @@ function createStyles(C) {
     modalContent: {
       backgroundColor: C.surface,
       borderTopLeftRadius: 28, borderTopRightRadius: 28,
-      overflow: 'hidden',
       height: '88%',
-      position: 'relative',
     },
     modalHeaderGradient: {
       paddingHorizontal: 20, paddingVertical: 20,
+      borderTopLeftRadius: 28, borderTopRightRadius: 28,
+      overflow: 'hidden',
     },
     modalHeaderRow: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
