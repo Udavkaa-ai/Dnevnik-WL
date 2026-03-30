@@ -420,7 +420,8 @@ function createStyles(C) {
       backgroundColor: C.surface,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
-      height: '88%',
+      flex: 1,
+      marginTop: 52,
       overflow: 'visible',
     },
     modalHeaderGradient: {
