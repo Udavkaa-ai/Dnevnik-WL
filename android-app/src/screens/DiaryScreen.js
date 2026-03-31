@@ -226,18 +226,17 @@ export default function DiaryScreen({ navigation }) {
           visible={!!selectedEntry}
           transparent
           animationType="slide"
+          statusBarTranslucent
           onRequestClose={() => setSelectedEntry(null)}
         >
-          {/* Flex column: thin tappable strip on top, then content fills rest */}
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }}>
-            <TouchableWithoutFeedback onPress={() => setSelectedEntry(null)}>
-              <View style={{ height: 56 }} />
-            </TouchableWithoutFeedback>
+          <View style={{ flex: 1 }}>
+            {/* Dark backdrop — absolute, не влияет на flex-layout */}
+            <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' }} />
 
-            <View style={styles.modalContent}>
+            {/* Sheet занимает весь экран за вычетом 56px сверху */}
+            <View style={[styles.modalContent, { backgroundColor: COLORS.surface }]}>
               {selectedEntry && (
                 <>
-                  {/* Gradient header — outside ScrollView so always visible */}
                   <LinearGradient
                     colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
                     style={styles.modalHeaderGradient}
@@ -257,12 +256,11 @@ export default function DiaryScreen({ navigation }) {
                     </View>
                   </LinearGradient>
 
-                  {/* Scrollable body */}
                   <ScrollView
                     style={{ flex: 1 }}
                     showsVerticalScrollIndicator={true}
                     contentContainerStyle={{ paddingBottom: 90 }}
-                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
                   >
                     {selectedEntry.photo_path ? (
                       <View style={styles.modalPhotoWrap}>
@@ -273,7 +271,6 @@ export default function DiaryScreen({ navigation }) {
                         />
                       </View>
                     ) : null}
-
                     {selectedEntry.done && (
                       <View style={styles.detailSection}>
                         <Text style={styles.detailSectionTitle}>📝 Запись дня</Text>
@@ -294,7 +291,6 @@ export default function DiaryScreen({ navigation }) {
                     )}
                   </ScrollView>
 
-                  {/* Floating edit FAB */}
                   <TouchableOpacity
                     style={styles.floatingEditBtn}
                     onPress={() => {
