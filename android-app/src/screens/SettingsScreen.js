@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { getUser, updateUser, exportDiary, importDiary, exportCalendarICS, importCalendarICS } from '../db/database';
+import { createBackupZip, restoreBackupZip } from '../services/backupService';
 import { scheduleMorningReminder, scheduleEveningReminder, cancelAllReminders, requestPermissions } from '../services/notifications';
 import {
   getStoredPIN, setBiometricEnabled, getBiometricEnabled, isBiometricAvailable,
@@ -212,23 +213,38 @@ export default function SettingsScreen() {
   const handleImport = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'text/plain',
+        type: ['text/plain', 'application/zip', 'application/octet-stream', '*/*'],
         copyToCacheDirectory: true,
       });
       if (result.canceled) return;
       setImporting(true);
       const fileUri = result.assets[0].uri;
-      const text = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
-      const importResult = await importDiary(text);
-      const parts = [];
-      parts.push(`Записи: ${importResult.imported} добавлено, ${importResult.skipped} пропущено (из ${importResult.total})`);
-      if (importResult.tasksTotal > 0)
-        parts.push(`Задачи: ${importResult.tasksImported} добавлено, ${importResult.tasksSkipped} пропущено (из ${importResult.tasksTotal})`);
-      if (importResult.recurringTotal > 0)
-        parts.push(`Повторяющиеся: ${importResult.recurringImported} добавлено, ${importResult.recurringSkipped} пропущено (из ${importResult.recurringTotal})`);
-      if (importResult.profileUpdated)
-        parts.push('Профиль: данные восстановлены');
-      Alert.alert('Импорт завершён', parts.join('\n'));
+      const fileName = (result.assets[0].name || '').toLowerCase();
+
+      if (fileName.endsWith('.zip')) {
+        // ZIP backup (with or without photos)
+        const r = await restoreBackupZip(fileUri);
+        const parts = [
+          `Записи: ${r.imported} добавлено, ${r.skipped} пропущено (из ${r.total})`,
+        ];
+        if (r.photosRestored > 0) parts.push(`Фото: ${r.photosRestored} восстановлено`);
+        if (r.tasksImported > 0) parts.push(`Задачи: ${r.tasksImported} добавлено, ${r.tasksSkipped} пропущено`);
+        if (r.recurringImported > 0) parts.push(`Повторяющиеся: ${r.recurringImported} добавлено`);
+        Alert.alert('Восстановление завершено', parts.join('\n'));
+      } else {
+        // Legacy text backup
+        const text = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+        const importResult = await importDiary(text);
+        const parts = [];
+        parts.push(`Записи: ${importResult.imported} добавлено, ${importResult.skipped} пропущено (из ${importResult.total})`);
+        if (importResult.tasksTotal > 0)
+          parts.push(`Задачи: ${importResult.tasksImported} добавлено, ${importResult.tasksSkipped} пропущено (из ${importResult.tasksTotal})`);
+        if (importResult.recurringTotal > 0)
+          parts.push(`Повторяющиеся: ${importResult.recurringImported} добавлено, ${importResult.recurringSkipped} пропущено (из ${importResult.recurringTotal})`);
+        if (importResult.profileUpdated)
+          parts.push('Профиль: данные восстановлены');
+        Alert.alert('Импорт завершён', parts.join('\n'));
+      }
     } catch (e) {
       Alert.alert('Ошибка импорта', e.message);
     } finally {
@@ -259,7 +275,29 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = () => {
+    Alert.alert(
+      'Создать бэкап',
+      'Выберите формат:',
+      [
+        {
+          text: 'Только текст (.txt)',
+          onPress: () => handleExportText(),
+        },
+        {
+          text: 'С фото (.zip)',
+          onPress: () => handleExportZip(true),
+        },
+        {
+          text: 'Без фото (.zip)',
+          onPress: () => handleExportZip(false),
+        },
+        { text: 'Отмена', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleExportText = async () => {
     setExporting(true);
     try {
       const text = await exportDiary();
@@ -273,6 +311,28 @@ export default function SettingsScreen() {
       }
     } catch (e) {
       Alert.alert('Ошибка экспорта', e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportZip = async (withPhotos) => {
+    setExporting(true);
+    try {
+      const { path, entryCount, photoCount } = await createBackupZip(withPhotos);
+      const info = withPhotos
+        ? `${entryCount} записей, ${photoCount} фото`
+        : `${entryCount} записей (без фото)`;
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(path, {
+          mimeType: 'application/zip',
+          dialogTitle: 'Бэкап дневника',
+        });
+      } else {
+        Alert.alert('Бэкап создан', info + `\nФайл: ${path}`);
+      }
+    } catch (e) {
+      Alert.alert('Ошибка бэкапа', e.message);
     } finally {
       setExporting(false);
     }
@@ -507,7 +567,11 @@ export default function SettingsScreen() {
               {exporting ? 'Сохраняю...' : 'Создать бэкап'}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.fieldHint}>Сохраняет всё: записи дневника, задачи (с датой, временем, статусом), повторяющиеся задачи и профиль.</Text>
+          <Text style={styles.fieldHint}>
+            Текст (.txt) — только текст, совместим со старыми версиями.{'\n'}
+            С фото (.zip) — полный бэкап: текст + прикреплённые фото.{'\n'}
+            Без фото (.zip) — все текстовые данные в новом формате, без фото.
+          </Text>
           <View style={styles.divider} />
           <TouchableOpacity
             style={[styles.exportBtn, exportingCal && { opacity: 0.6 }]}
@@ -563,7 +627,8 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
           <Text style={styles.fieldHint}>
-            Загрузи ранее созданный бэкап. Добавляются только новые данные — существующие записи не перезаписываются.
+            Поддерживает оба формата: .zip (новый, с фото) и .txt (старый).{'\n'}
+            Добавляются только новые данные — существующие записи не перезаписываются.
           </Text>
         </View>
       </View>
