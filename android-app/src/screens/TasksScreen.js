@@ -556,31 +556,42 @@ export default function TasksScreen() {
               </Text>
             </TouchableOpacity>
             {editShowTime && (
-              <View style={styles.timeRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalLabel}>Начало</Text>
-                  <TextInput
-                    style={styles.timeInput}
-                    placeholder="09:00"
-                    placeholderTextColor={COLORS.textSecondary}
-                    value={editTimeStart}
-                    onChangeText={setEditTimeStart}
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={5}
-                  />
+              <View style={{ marginBottom: 16 }}>
+                <View style={styles.timeRow}>
+                  <TouchableOpacity
+                    style={styles.timePill}
+                    onPress={() => { setTimePickerTarget('editStart'); setTimePickerVisible(true); }}
+                  >
+                    <Text style={styles.timePillText}>{editTimeStart || '–:–'}</Text>
+                    <Text style={styles.timePillLabel}>начало</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 20, alignSelf: 'center' }}>→</Text>
+                  <TouchableOpacity
+                    style={styles.timePill}
+                    onPress={() => { setTimePickerTarget('editEnd'); setTimePickerVisible(true); }}
+                  >
+                    <Text style={styles.timePillText}>{editTimeEnd || '–:–'}</Text>
+                    <Text style={styles.timePillLabel}>конец</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalLabel}>Конец</Text>
-                  <TextInput
-                    style={styles.timeInput}
-                    placeholder="10:00"
-                    placeholderTextColor={COLORS.textSecondary}
-                    value={editTimeEnd}
-                    onChangeText={setEditTimeEnd}
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={5}
-                  />
-                </View>
+                {!!editTimeStart && (
+                  <View>
+                    <Text style={[styles.modalLabel, { marginBottom: 6 }]}>Напомнить до начала:</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {[0, 5, 10, 15, 30, 60].map(m => (
+                        <TouchableOpacity
+                          key={m}
+                          style={[styles.remPill, editReminderMins === m && styles.remPillActive]}
+                          onPress={() => setEditReminderMins(m)}
+                        >
+                          <Text style={[styles.remPillText, editReminderMins === m && styles.remPillTextActive]}>
+                            {m === 0 ? 'Нет' : m < 60 ? `${m} мин` : '1 час'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             )}
             <TouchableOpacity
@@ -641,31 +652,42 @@ export default function TasksScreen() {
               </Text>
             </TouchableOpacity>
             {newTaskShowTime && (
-              <View style={styles.timeRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalLabel}>Начало</Text>
-                  <TextInput
-                    style={styles.timeInput}
-                    placeholder="09:00"
-                    placeholderTextColor={COLORS.textSecondary}
-                    value={newTaskTimeStart}
-                    onChangeText={setNewTaskTimeStart}
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={5}
-                  />
+              <View style={{ marginBottom: 16 }}>
+                <View style={styles.timeRow}>
+                  <TouchableOpacity
+                    style={styles.timePill}
+                    onPress={() => { setTimePickerTarget('newStart'); setTimePickerVisible(true); }}
+                  >
+                    <Text style={styles.timePillText}>{newTaskTimeStart || '–:–'}</Text>
+                    <Text style={styles.timePillLabel}>начало</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 20, alignSelf: 'center' }}>→</Text>
+                  <TouchableOpacity
+                    style={styles.timePill}
+                    onPress={() => { setTimePickerTarget('newEnd'); setTimePickerVisible(true); }}
+                  >
+                    <Text style={styles.timePillText}>{newTaskTimeEnd || '–:–'}</Text>
+                    <Text style={styles.timePillLabel}>конец</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalLabel}>Конец</Text>
-                  <TextInput
-                    style={styles.timeInput}
-                    placeholder="10:00"
-                    placeholderTextColor={COLORS.textSecondary}
-                    value={newTaskTimeEnd}
-                    onChangeText={setNewTaskTimeEnd}
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={5}
-                  />
-                </View>
+                {!!newTaskTimeStart && (
+                  <View>
+                    <Text style={[styles.modalLabel, { marginBottom: 6 }]}>Напомнить до начала:</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {[0, 5, 10, 15, 30, 60].map(m => (
+                        <TouchableOpacity
+                          key={m}
+                          style={[styles.remPill, newTaskReminderMins === m && styles.remPillActive]}
+                          onPress={() => setNewTaskReminderMins(m)}
+                        >
+                          <Text style={[styles.remPillText, newTaskReminderMins === m && styles.remPillTextActive]}>
+                            {m === 0 ? 'Нет' : m < 60 ? `${m} мин` : '1 час'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             )}
             <TouchableOpacity
@@ -765,6 +787,24 @@ export default function TasksScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <TimePickerModal
+        visible={timePickerVisible}
+        initial={
+          timePickerTarget === 'newStart' ? newTaskTimeStart :
+          timePickerTarget === 'newEnd' ? newTaskTimeEnd :
+          timePickerTarget === 'editStart' ? editTimeStart :
+          editTimeEnd
+        }
+        onConfirm={(t) => {
+          if (timePickerTarget === 'newStart') setNewTaskTimeStart(t);
+          else if (timePickerTarget === 'newEnd') setNewTaskTimeEnd(t);
+          else if (timePickerTarget === 'editStart') setEditTimeStart(t);
+          else setEditTimeEnd(t);
+          setTimePickerVisible(false);
+        }}
+        onCancel={() => setTimePickerVisible(false)}
+      />
     </View>
     </LinearGradient>
   );
@@ -861,11 +901,20 @@ function createStyles(C) {
     datePillTextActive: { color: '#fff', fontWeight: '600' },
     modalSaveBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
     modalSaveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
-    timeRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-    timeInput: {
-      borderBottomWidth: 2, borderBottomColor: C.notebookLine,
-      paddingVertical: 8, paddingHorizontal: 4,
-      fontSize: 16, color: C.text, textAlign: 'center',
+    timeRow: { flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 12 },
+    timePill: {
+      flex: 1, backgroundColor: C.background, borderRadius: 12,
+      paddingVertical: 10, paddingHorizontal: 12, alignItems: 'center',
+      borderWidth: 1, borderColor: C.border,
     },
+    timePillText: { fontSize: 22, fontWeight: '600', color: C.text },
+    timePillLabel: { fontSize: 11, color: C.textSecondary, marginTop: 2 },
+    remPill: {
+      paddingHorizontal: 12, paddingVertical: 6,
+      borderRadius: 16, borderWidth: 1, borderColor: C.border,
+    },
+    remPillActive: { backgroundColor: C.primary, borderColor: C.primary },
+    remPillText: { fontSize: 13, color: C.text },
+    remPillTextActive: { color: '#fff', fontWeight: '600' },
   });
 }
