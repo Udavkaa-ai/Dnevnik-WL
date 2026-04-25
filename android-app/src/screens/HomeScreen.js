@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert, Modal, Pressable, TextInput,
-  Animated, LayoutAnimation, UIManager, Platform, StatusBar,
+  Animated, LayoutAnimation, UIManager, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,6 @@ import { getPlansForDate, getOverduePlans, updatePlanStatus, addPlan } from '../
 import { today, addDays, formatDate, formatDateFull } from '../utils';
 import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
-import { useDrawer } from '../context/DrawerContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -84,7 +83,6 @@ export default function HomeScreen({ navigation }) {
   const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
-  const { setDrawerOpen } = useDrawer();
 
   const [todayPlans, setTodayPlans] = useState([]);
   const [tomorrowPlans, setTomorrowPlans] = useState([]);
@@ -204,31 +202,28 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-
-      {/* ── Top header bar ── */}
-      <LinearGradient
-        colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-        style={styles.topBar}
-      >
-        <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.menuBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="menu" size={26} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Главная</Text>
-        <TouchableOpacity
-          ref={registerRef('homeAiCard')}
-          collapsable={false}
-          onPress={() => navigation.navigate('Analysis')}
-          style={styles.aiBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="analytics-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
-
     <ScrollView
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       contentContainerStyle={{ paddingBottom: 100 }}
     >
+
+      {/* AI Analysis card */}
+      <TouchableOpacity
+        ref={registerRef('homeAiCard')}
+        collapsable={false}
+        style={styles.analysisCard}
+        onPress={() => navigation.navigate('Analysis')}
+        activeOpacity={0.8}
+      >
+        <View style={styles.analysisIcon}>
+          <Ionicons name="analytics-outline" size={26} color={COLORS.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
+          <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+      </TouchableOpacity>
 
       {/* Overdue */}
       {overduePlans.length > 0 && (
@@ -435,15 +430,23 @@ function DaySection({ dateStr, label, plans, onToggle, onAdd, addBtnRef, styles,
 
 function createStyles(C) {
   return StyleSheet.create({
-    // ── Top bar ──
-    topBar: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 44,
-      paddingBottom: 12, paddingHorizontal: 16, gap: 12,
+    // ── AI card ──
+    analysisCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: C.surface,
+      marginHorizontal: 12, marginTop: 10, marginBottom: 2,
+      borderRadius: 14, padding: 14,
+      elevation: 2, borderWidth: 1, borderColor: C.border,
+      shadowColor: C.primary, shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08, shadowRadius: 4,
     },
-    menuBtn: { padding: 2 },
-    topBarTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: '#fff' },
-    aiBtn: { padding: 4 },
+    analysisIcon: {
+      width: 42, height: 42, borderRadius: 21,
+      backgroundColor: C.primaryLight,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    analysisTitle: { fontSize: 15, fontWeight: '700', color: C.text },
+    analysisSub: { fontSize: 12, color: C.textSecondary, marginTop: 1 },
 
     // ── Day section ──
     daySection: {

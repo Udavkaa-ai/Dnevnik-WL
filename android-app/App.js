@@ -14,7 +14,7 @@ import LockScreen from './src/screens/LockScreen';
 import { ThemeProvider, useColors, useTheme } from './src/ThemeContext';
 import { OnboardingProvider } from './src/context/OnboardingContext';
 import OnboardingOverlay from './src/components/OnboardingOverlay';
-import { DrawerProvider } from './src/context/DrawerContext';
+import { DrawerProvider, useDrawer } from './src/context/DrawerContext';
 import DrawerMenu from './src/components/DrawerMenu';
 
 import HomeScreen from './src/screens/HomeScreen';
@@ -51,6 +51,19 @@ function AnimatedTabButton({ children, onPress, onLongPress, style }) {
 function HomeTabs() {
   const COLORS = useColors();
   const { isDark } = useTheme();
+  const { setDrawerOpen } = useDrawer();
+
+  const gradientColors = isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070'];
+
+  const HamburgerBtn = () => (
+    <TouchableOpacity
+      onPress={() => setDrawerOpen(true)}
+      style={{ paddingLeft: 16, paddingRight: 8 }}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Ionicons name="menu" size={26} color="#fff" />
+    </TouchableOpacity>
+  );
 
   return (
     <Tab.Navigator
@@ -77,7 +90,13 @@ function HomeTabs() {
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         tabBarButton: (props) => <AnimatedTabButton {...props} />,
-        headerShown: false,
+        headerShown: true,
+        headerBackground: () => (
+          <LinearGradient colors={gradientColors} style={{ flex: 1 }} />
+        ),
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+        headerLeft: () => <HamburgerBtn />,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная' }} />

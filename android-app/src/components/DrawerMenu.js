@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, Animated, StyleSheet,
-  Dimensions, Pressable, StatusBar,
+  Dimensions, Pressable,
 } from 'react-native';
-import { useNavigation, useNavigationState } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDrawer } from '../context/DrawerContext';
@@ -26,6 +27,7 @@ export default function DrawerMenu() {
   const COLORS = useColors();
   const { isDark } = useTheme();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -85,7 +87,7 @@ export default function DrawerMenu() {
       <Animated.View style={[styles.panel, { transform: [{ translateX }] }]}>
         <LinearGradient
           colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-          style={styles.panelHeader}
+          style={[styles.panelHeader, { paddingTop: insets.top + 12 }]}
         >
           <Text style={styles.appName}>Дневник</Text>
           <Text style={styles.appSub}>Личный органайзер</Text>
@@ -139,7 +141,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   panelHeader: {
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
     paddingBottom: 20,
     paddingHorizontal: 20,
   },
