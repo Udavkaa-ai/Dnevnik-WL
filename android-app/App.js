@@ -7,7 +7,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { openDatabase } from './src/db/database';
 import { getStoredPIN } from './src/services/authService';
@@ -57,7 +56,6 @@ const TAB_TITLES = {
 function SharedHeader() {
   const { isDark } = useTheme();
   const { setDrawerOpen } = useDrawer();
-  const insets = useSafeAreaInsets();
   const state = useNavigationState(s => s);
 
   const mainRoute = state?.routes?.find(r => r.name === 'Main');
@@ -68,7 +66,7 @@ function SharedHeader() {
   return (
     <LinearGradient
       colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-      style={{ paddingTop: insets.top + 10, paddingBottom: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}
+      style={{ paddingTop: 12, paddingBottom: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}
     >
       <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name="menu" size={26} color="#fff" />
@@ -107,7 +105,7 @@ function AppNavigator({ navigationRef }) {
 
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style="light" backgroundColor={isDark ? '#1e2e3d' : '#3d6b8e'} translucent={false} />
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
