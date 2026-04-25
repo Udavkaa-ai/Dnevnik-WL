@@ -309,7 +309,6 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Animated.View>
-        </View>
 
       {/* Add Task Modal */}
       <Modal
