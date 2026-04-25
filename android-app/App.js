@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, ActivityIndicator, TouchableOpacity, Animated, AppState, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Animated, AppState, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationState } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { openDatabase } from './src/db/database';
 import { getStoredPIN } from './src/services/authService';
@@ -48,70 +49,52 @@ function AnimatedTabButton({ children, onPress, onLongPress, style }) {
   );
 }
 
-function HomeTabs() {
-  const COLORS = useColors();
+const TAB_TITLES = {
+  Home: 'Главная', Tasks: 'Задачи', Diary: 'Записи',
+  Stats: 'Статистика', MoreTab: 'Настройки',
+};
+
+function SharedHeader() {
   const { isDark } = useTheme();
   const { setDrawerOpen } = useDrawer();
+  const insets = useSafeAreaInsets();
+  const state = useNavigationState(s => s);
 
-  const gradientColors = isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070'];
-
-  const HamburgerBtn = () => (
-    <TouchableOpacity
-      onPress={() => setDrawerOpen(true)}
-      style={{ paddingLeft: 16, paddingRight: 8 }}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-    >
-      <Ionicons name="menu" size={26} color="#fff" />
-    </TouchableOpacity>
-  );
+  const mainRoute = state?.routes?.find(r => r.name === 'Main');
+  const tabState = mainRoute?.state;
+  const currentTab = tabState?.routes?.[tabState?.index ?? 0]?.name ?? 'Home';
+  const title = TAB_TITLES[currentTab] ?? 'Дневник';
 
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          const icons = {
-            Home: focused ? 'home' : 'home-outline',
-            Tasks: focused ? 'list' : 'list-outline',
-            Diary: focused ? 'book' : 'book-outline',
-            Stats: focused ? 'stats-chart' : 'stats-chart-outline',
-          };
-          return <Ionicons name={icons[route.name]} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarStyle: { display: 'none' },
-        headerShown: true,
-        headerBackground: () => (
-          <LinearGradient colors={gradientColors} style={{ flex: 1 }} />
-        ),
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
-        headerLeft: () => <HamburgerBtn />,
-      })}
+    <LinearGradient
+      colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+      style={{ paddingTop: insets.top + 10, paddingBottom: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная' }} />
-      <Tab.Screen name="Tasks" component={TasksScreen} options={{ title: 'Задачи' }} />
-      <Tab.Screen name="Diary" component={DiaryScreen} options={{ title: 'Записи' }} />
-      <Tab.Screen name="Stats" component={StatsScreen} options={{ title: 'Статистика' }} />
-      <Tab.Screen
-        name="MoreTab"
-        component={SettingsScreen}
-        options={{
-          title: 'Настройки',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
-          ),
-        }}
-      />
+      <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="menu" size={26} color="#fff" />
+      </TouchableOpacity>
+      <Text style={{ fontSize: 20, fontWeight: '700', color: '#fff', flex: 1 }}>{title}</Text>
+    </LinearGradient>
+  );
+}
+
+function HomeTabs() {
+  return (
+    <Tab.Navigator screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Tasks" component={TasksScreen} />
+      <Tab.Screen name="Diary" component={DiaryScreen} />
+      <Tab.Screen name="Stats" component={StatsScreen} />
+      <Tab.Screen name="MoreTab" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
 
-// Wraps HomeTabs + DrawerMenu so DrawerMenu can use useNavigation()
 function MainWithDrawer() {
   return (
     <DrawerProvider>
       <View style={{ flex: 1 }}>
+        <SharedHeader />
         <HomeTabs />
         <DrawerMenu />
       </View>
