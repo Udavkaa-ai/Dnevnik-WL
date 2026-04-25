@@ -79,17 +79,7 @@ function HomeTabs() {
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarStyle: {
-          backgroundColor: isDark ? '#1a1c2a' : '#fff',
-          borderTopColor: isDark ? '#2a2d40' : '#e8e8e8',
-          borderTopWidth: 1,
-          paddingBottom: 6,
-          paddingTop: 4,
-          height: 64,
-          elevation: 8,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
-        tabBarButton: (props) => <AnimatedTabButton {...props} />,
+        tabBarStyle: { display: 'none' },
         headerShown: true,
         headerBackground: () => (
           <LinearGradient colors={gradientColors} style={{ flex: 1 }} />
