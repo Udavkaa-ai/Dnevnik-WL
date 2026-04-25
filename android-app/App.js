@@ -78,7 +78,10 @@ function SharedHeader() {
 
 function HomeTabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}>
+    <Tab.Navigator
+      safeAreaInsets={{ top: 0, bottom: 0 }}
+      screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}
+    >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Tasks" component={TasksScreen} />
       <Tab.Screen name="Diary" component={DiaryScreen} />
@@ -109,6 +112,7 @@ function AppNavigator({ navigationRef }) {
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
+            statusBarTranslucent: false,
             headerBackground: () => (
               <LinearGradient
                 colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
@@ -121,7 +125,7 @@ function AppNavigator({ navigationRef }) {
             headerTitleStyle: { fontWeight: '700', fontSize: 18 },
           }}
         >
-          <Stack.Screen name="Main" component={MainWithDrawer} options={{ headerShown: false }} />
+          <Stack.Screen name="Main" component={MainWithDrawer} options={{ headerShown: false, contentStyle: { paddingTop: 0 } }} />
           <Stack.Screen
             name="Entry"
             component={EntryScreen}
