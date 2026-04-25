@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator, TouchableOpacity, Animated, AppState, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -14,6 +14,8 @@ import LockScreen from './src/screens/LockScreen';
 import { ThemeProvider, useColors, useTheme } from './src/ThemeContext';
 import { OnboardingProvider } from './src/context/OnboardingContext';
 import OnboardingOverlay from './src/components/OnboardingOverlay';
+import { DrawerProvider } from './src/context/DrawerContext';
+import DrawerMenu from './src/components/DrawerMenu';
 
 import HomeScreen from './src/screens/HomeScreen';
 import EntryScreen from './src/screens/EntryScreen';
@@ -26,7 +28,6 @@ import SettingsScreen from './src/screens/SettingsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Animated tab bar button with press scale effect
 function AnimatedTabButton({ children, onPress, onLongPress, style }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -39,12 +40,7 @@ function AnimatedTabButton({ children, onPress, onLongPress, style }) {
   };
 
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      onLongPress={onLongPress}
-      style={style}
-      activeOpacity={1}
-    >
+    <TouchableOpacity onPress={handlePress} onLongPress={onLongPress} style={style} activeOpacity={1}>
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         {children}
       </Animated.View>
@@ -68,22 +64,23 @@ function HomeTabs() {
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#4caf50',
+        tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarStyle: {
-          backgroundColor: isDark ? '#1e1c2c' : '#fffef8',
-          borderTopColor: isDark ? '#2a3d52' : '#c5d8ea',
-          borderTopWidth: 1.5,
+          backgroundColor: isDark ? '#1a1c2a' : '#fff',
+          borderTopColor: isDark ? '#2a2d40' : '#e8e8e8',
+          borderTopWidth: 1,
           paddingBottom: 6,
           paddingTop: 4,
           height: 64,
+          elevation: 8,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         tabBarButton: (props) => <AnimatedTabButton {...props} />,
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная', headerTitle: 'Дневник' }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Главная' }} />
       <Tab.Screen name="Tasks" component={TasksScreen} options={{ title: 'Задачи' }} />
       <Tab.Screen name="Diary" component={DiaryScreen} options={{ title: 'Записи' }} />
       <Tab.Screen name="Stats" component={StatsScreen} options={{ title: 'Статистика' }} />
@@ -92,7 +89,6 @@ function HomeTabs() {
         component={SettingsScreen}
         options={{
           title: 'Настройки',
-          headerTitle: 'Настройки',
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
           ),
@@ -102,8 +98,19 @@ function HomeTabs() {
   );
 }
 
+// Wraps HomeTabs + DrawerMenu so DrawerMenu can use useNavigation()
+function MainWithDrawer() {
+  return (
+    <DrawerProvider>
+      <View style={{ flex: 1 }}>
+        <HomeTabs />
+        <DrawerMenu />
+      </View>
+    </DrawerProvider>
+  );
+}
+
 function AppNavigator({ navigationRef }) {
-  const COLORS = useColors();
   const { isDark } = useTheme();
 
   return (
@@ -124,7 +131,7 @@ function AppNavigator({ navigationRef }) {
             headerTitleStyle: { fontWeight: '700', fontSize: 18 },
           }}
         >
-          <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
+          <Stack.Screen name="Main" component={MainWithDrawer} options={{ headerShown: false }} />
           <Stack.Screen
             name="Entry"
             component={EntryScreen}
@@ -143,7 +150,6 @@ function AppNavigator({ navigationRef }) {
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
-  // null = still checking; true = locked; false = unlocked
   const [isLocked, setIsLocked] = useState(null);
   const navigationRef = useRef(null);
   const appState = useRef(AppState.currentState);
@@ -156,12 +162,10 @@ export default function App() {
       setIsReady(true);
     };
     init();
-
     const sub = Notifications.addNotificationResponseReceivedListener(() => {});
     return () => sub.remove();
   }, []);
 
-  // Lock when app returns from background
   useEffect(() => {
     const sub = AppState.addEventListener('change', async (nextState) => {
       const wasBackground = appState.current.match(/inactive|background/);

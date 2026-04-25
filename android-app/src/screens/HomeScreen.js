@@ -2,15 +2,16 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert, Modal, Pressable, TextInput,
-  Animated, LayoutAnimation, UIManager, Platform,
+  Animated, LayoutAnimation, UIManager, Platform, StatusBar,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getPlansForDate, getOverduePlans, updatePlanStatus, addPlan } from '../db/database';
-import { today, addDays, formatDate } from '../utils';
+import { today, addDays, formatDate, formatDateFull } from '../utils';
 import { useColors, useTheme } from '../ThemeContext';
 import { useOnboarding } from '../context/OnboardingContext';
+import { useDrawer } from '../context/DrawerContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -83,8 +84,11 @@ export default function HomeScreen({ navigation }) {
   const { isDark } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { registerRef } = useOnboarding();
+  const { setDrawerOpen } = useDrawer();
 
   const [todayPlans, setTodayPlans] = useState([]);
+  const [tomorrowPlans, setTomorrowPlans] = useState([]);
+  const [dayAfterPlans, setDayAfterPlans] = useState([]);
   const [overduePlans, setOverduePlans] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -125,12 +129,16 @@ export default function HomeScreen({ navigation }) {
 
   const load = async () => {
     try {
-      const [tp, op] = await Promise.all([
+      const [tp, t2, t3, op] = await Promise.all([
         getPlansForDate(todayStr),
+        getPlansForDate(addDays(todayStr, 1)),
+        getPlansForDate(addDays(todayStr, 2)),
         getOverduePlans(),
       ]);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setTodayPlans(tp);
+      setTomorrowPlans(t2);
+      setDayAfterPlans(t3);
       setOverduePlans(op.filter(p => p.plan_date !== todayStr));
     } catch (e) {
       console.log('Home load error:', e.message);
@@ -192,113 +200,99 @@ export default function HomeScreen({ navigation }) {
     load();
   };
 
-  const doneCount = todayPlans.filter(p => p.status === 'done').length;
-
-  const gradientBg = isDark ? ['#161520', '#1a1830'] : ['#f9f5eb', '#ede8da'];
+  const bgColor = isDark ? '#12131f' : '#f5f5f5';
 
   return (
-    <LinearGradient colors={gradientBg} style={{ flex: 1 }}>
-    <ScrollView
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-      contentContainerStyle={{ paddingBottom: 90 }}
-    >
-      {/* Compact header bar */}
-      <Animated.View style={makeAnimStyle(headerAnim)}>
-        <LinearGradient
-          colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerBanner}
-        >
-          <Text style={styles.dateText}>{formatDate(todayStr)}</Text>
-          <Text style={styles.greeting}>Сегодня</Text>
-        </LinearGradient>
-      </Animated.View>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
 
-      {/* AI Analysis button */}
-      <Animated.View style={makeAnimStyle(quoteAnim)}>
+      {/* ── Top header bar ── */}
+      <LinearGradient
+        colors={isDark ? ['#1e2e3d', '#0f1a26'] : ['#3d6b8e', '#2d5070']}
+        style={styles.topBar}
+      >
+        <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.menuBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="menu" size={26} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>Главная</Text>
         <TouchableOpacity
           ref={registerRef('homeAiCard')}
           collapsable={false}
-          style={styles.analysisCard}
           onPress={() => navigation.navigate('Analysis')}
-          activeOpacity={0.8}
+          style={styles.aiBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <View style={styles.analysisIcon}>
-            <Ionicons name="analytics-outline" size={28} color={COLORS.primary} />
-          </View>
-          <View style={styles.analysisText}>
-            <Text style={styles.analysisTitle}>AI Анализ дневника</Text>
-            <Text style={styles.analysisSub}>Паттерны, баланс, психологический разбор</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+          <Ionicons name="analytics-outline" size={22} color="#fff" />
         </TouchableOpacity>
-      </Animated.View>
+      </LinearGradient>
 
-      {/* Today's tasks */}
-      <Animated.View style={makeAnimStyle(tasksAnim)}>
-        <View ref={registerRef('homeTodayCard')} collapsable={false} style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Задачи на сегодня</Text>
-            <View style={styles.cardHeaderRight}>
-              {todayPlans.length > 0 && (
-                <View style={styles.progressBadge}>
-                  <Text style={styles.taskCount}>{doneCount}/{todayPlans.length}</Text>
-                </View>
-              )}
-              <TouchableOpacity
-                ref={registerRef('homeAddTaskBtn')}
-                collapsable={false}
-                style={styles.addBtn}
-                onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
-              >
-                <Ionicons name="add" size={20} color={COLORS.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
+    <ScrollView
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      contentContainerStyle={{ paddingBottom: 100 }}
+    >
 
-          {todayPlans.length === 0 ? (
-            <TouchableOpacity
-              style={styles.emptyTasks}
-              onPress={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
-            >
-              <Ionicons name="checkmark-circle-outline" size={32} color={COLORS.border} style={{ marginBottom: 6 }} />
-              <Text style={styles.emptyTasksText}>Нет задач на сегодня</Text>
-              <Text style={styles.emptyTasksHint}>Нажмите + чтобы добавить</Text>
+      {/* Overdue */}
+      {overduePlans.length > 0 && (
+        <View style={styles.overdueSection}>
+          <Text style={styles.overdueSectionTitle}>⚠️ Просроченные ({overduePlans.length})</Text>
+          {overduePlans.slice(0, 3).map(plan => (
+            <TouchableOpacity key={plan.id} style={styles.taskRow} onPress={() => handleOverdueTask(plan)} activeOpacity={0.7}>
+              <Ionicons name="alert-circle-outline" size={22} color="#e55" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.taskText}>{plan.task_text}</Text>
+                <Text style={styles.overdueDate}>{formatDate(plan.plan_date)}</Text>
+              </View>
             </TouchableOpacity>
-          ) : (
-            todayPlans.map(plan => (
-              <AnimatedTaskRow
-                key={plan.id}
-                plan={plan}
-                onPress={toggleTask}
-                styles={styles}
-                COLORS={COLORS}
-              />
-            ))
+          ))}
+          {overduePlans.length > 3 && (
+            <TouchableOpacity onPress={() => navigation.navigate('Tasks')}>
+              <Text style={styles.moreText}>Ещё {overduePlans.length - 3} задач → все задачи</Text>
+            </TouchableOpacity>
           )}
         </View>
+      )}
 
-        {/* Overdue tasks */}
-        {overduePlans.length > 0 && (
-          <View style={[styles.card, styles.overdueCard]}>
-            <Text style={styles.cardTitle}>⚠️ Просроченные ({overduePlans.length})</Text>
-            {overduePlans.slice(0, 3).map(plan => (
-              <TouchableOpacity key={plan.id} style={styles.taskRow} onPress={() => handleOverdueTask(plan)} activeOpacity={0.7}>
-                <Ionicons name="alert-circle-outline" size={22} color={COLORS.accent} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.taskText}>{plan.task_text}</Text>
-                  <Text style={styles.overdueDate}>{formatDate(plan.plan_date)}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            {overduePlans.length > 3 && (
-              <TouchableOpacity onPress={() => navigation.navigate('Tasks')}>
-                <Text style={styles.moreText}>Ещё {overduePlans.length - 3} задач → все задачи</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+      {/* ── Day sections ── */}
+      <Animated.View style={makeAnimStyle(tasksAnim)}>
+
+        {/* Today */}
+        <View ref={registerRef('homeTodayCard')} collapsable={false}>
+          <DaySection
+            dateStr={todayStr}
+            label="Сегодня"
+            plans={todayPlans}
+            onToggle={toggleTask}
+            onAdd={() => { setNewTaskDate(todayStr); setAddModalVisible(true); }}
+            addBtnRef={registerRef('homeAddTaskBtn')}
+            styles={styles}
+            COLORS={COLORS}
+            isDark={isDark}
+          />
+        </View>
+
+        {/* Tomorrow */}
+        <DaySection
+          dateStr={addDays(todayStr, 1)}
+          label="Завтра"
+          plans={tomorrowPlans}
+          onToggle={toggleTask}
+          onAdd={() => { setNewTaskDate(addDays(todayStr, 1)); setAddModalVisible(true); }}
+          styles={styles}
+          COLORS={COLORS}
+          isDark={isDark}
+        />
+
+        {/* Day after tomorrow */}
+        <DaySection
+          dateStr={addDays(todayStr, 2)}
+          label={null}
+          plans={dayAfterPlans}
+          onToggle={toggleTask}
+          onAdd={() => { setNewTaskDate(addDays(todayStr, 2)); setAddModalVisible(true); }}
+          styles={styles}
+          COLORS={COLORS}
+          isDark={isDark}
+        />
+
       </Animated.View>
 
       {/* Quote of the day */}
@@ -315,6 +309,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Animated.View>
+        </View>
 
       {/* Add Task Modal */}
       <Modal
@@ -369,6 +364,7 @@ export default function HomeScreen({ navigation }) {
           </Pressable>
         </Pressable>
       </Modal>
+
     </ScrollView>
 
     {/* FAB — Итог дня */}
@@ -379,133 +375,156 @@ export default function HomeScreen({ navigation }) {
       onPress={() => navigation.navigate('Entry', { date: todayStr })}
       activeOpacity={0.85}
     >
-      <LinearGradient
-        colors={['#4a7fa8', '#2d5070']}
-        style={styles.fabGradient}
-      >
+      <LinearGradient colors={['#4a7fa8', '#2d5070']} style={styles.fabGradient}>
         <Ionicons name="create-outline" size={22} color="#fff" />
         <Text style={styles.fabText}>Итог дня</Text>
       </LinearGradient>
     </TouchableOpacity>
 
-    </LinearGradient>
+    </View>
+  );
+}
+
+// ── Day section component ─────────────────────────────────────────────────────
+function DaySection({ dateStr, label, plans, onToggle, onAdd, addBtnRef, styles, COLORS, isDark }) {
+  const doneCount = plans.filter(p => p.status === 'done').length;
+  const displayLabel = label || formatDateFull(dateStr);
+
+  return (
+    <View style={styles.daySection}>
+      {/* Day header */}
+      <View style={styles.dayHeader}>
+        <Text style={styles.dayTitle}>{displayLabel}</Text>
+        <Text style={styles.dayDate}>{label ? formatDateFull(dateStr) : ''}</Text>
+        <View style={{ flex: 1 }} />
+        {plans.length > 0 && (
+          <Text style={[styles.dayProgress, { color: COLORS.primary }]}>{doneCount}/{plans.length}</Text>
+        )}
+        <TouchableOpacity
+          ref={addBtnRef}
+          collapsable={false}
+          onPress={onAdd}
+          style={styles.dayAddBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="add" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Task list */}
+      <View style={styles.daySectionBody}>
+        {plans.length === 0 ? (
+          <TouchableOpacity style={styles.emptyDay} onPress={onAdd} activeOpacity={0.7}>
+            <Ionicons name="clipboard-outline" size={36} color={COLORS.border} />
+            <Text style={styles.emptyDayText}>Нет задач</Text>
+          </TouchableOpacity>
+        ) : (
+          plans.map(plan => (
+            <AnimatedTaskRow
+              key={plan.id}
+              plan={plan}
+              onPress={onToggle}
+              styles={styles}
+              COLORS={COLORS}
+            />
+          ))
+        )}
+      </View>
+    </View>
   );
 }
 
 function createStyles(C) {
   return StyleSheet.create({
-    headerBanner: {
-      paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12,
-      marginBottom: 12,
+    // ── Top bar ──
+    topBar: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 44,
+      paddingBottom: 12, paddingHorizontal: 16, gap: 12,
     },
-    dateText: {
-      fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 2,
-    },
-    greeting: {
-      fontSize: 20, fontWeight: '700', color: '#fff',
-    },
-    // FAB
-    fab: {
-      position: 'absolute',
-      bottom: 20,
-      right: 16,
-      borderRadius: 28,
-      elevation: 6,
-      shadowColor: '#2d5070',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.4,
-      shadowRadius: 8,
-    },
-    fabGradient: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      paddingHorizontal: 20, paddingVertical: 14,
-      borderRadius: 28,
-    },
-    fabText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    menuBtn: { padding: 2 },
+    topBarTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: '#fff' },
+    aiBtn: { padding: 4 },
 
-    // Quote card — notebook page style
-    quoteCard: {
+    // ── Day section ──
+    daySection: {
       backgroundColor: C.surface,
-      borderRadius: 10,
-      marginHorizontal: 16, marginTop: 4, marginBottom: 16,
-      borderLeftWidth: 4, borderLeftColor: C.accent,
+      marginHorizontal: 12, marginTop: 10,
+      borderRadius: 14,
+      elevation: 2,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06, shadowRadius: 4,
       overflow: 'hidden',
-      elevation: 3,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08, shadowRadius: 6,
     },
-    notebookLines: { ...StyleSheet.absoluteFillObject },
-    notebookLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.notebookLine, opacity: 0.5 },
-    quoteContent: { padding: 12, paddingLeft: 16, paddingBottom: 14 },
-    quoteText: {
-      fontSize: 14, color: C.text, lineHeight: 21, marginBottom: 6,
-      
+    dayHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 16, paddingVertical: 12,
+      borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    quoteAuthor: {
-      fontSize: 13, color: C.primary, fontWeight: '600',
-      
-    },
-
-    // Task card
-    card: {
-      backgroundColor: C.surface, borderRadius: 14, padding: 16,
-      marginHorizontal: 16, marginBottom: 12,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
-      borderWidth: 1, borderColor: C.border,
-    },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    cardTitle: {
-      fontSize: 18, fontWeight: '700', color: C.text,
-      
-    },
-    cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    progressBadge: {
-      backgroundColor: C.primaryLight, borderRadius: 12,
-      paddingHorizontal: 8, paddingVertical: 2,
-    },
-    taskCount: { fontSize: 12, color: C.primary, fontWeight: '700' },
-    addBtn: {
-      width: 30, height: 30, borderRadius: 15,
+    dayTitle: { fontSize: 16, fontWeight: '700', color: C.text },
+    dayDate: { fontSize: 12, color: C.textSecondary, marginLeft: 8, flex: 1 },
+    dayProgress: { fontSize: 13, fontWeight: '600', marginRight: 8 },
+    dayAddBtn: {
+      width: 28, height: 28, borderRadius: 14,
       backgroundColor: C.primaryLight,
       justifyContent: 'center', alignItems: 'center',
-      borderWidth: 1, borderColor: C.notebookLine,
     },
-    emptyTasks: { paddingVertical: 16, alignItems: 'center' },
-    emptyTasksText: { fontSize: 14, color: C.textSecondary },
-    emptyTasksHint: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+    daySectionBody: { paddingHorizontal: 4 },
+    emptyDay: {
+      alignItems: 'center', paddingVertical: 24, gap: 8,
+    },
+    emptyDayText: { fontSize: 13, color: C.textSecondary },
+
+    // ── Task row ──
     taskRow: {
-      flexDirection: 'row', alignItems: 'center', paddingVertical: 9, gap: 10,
-      borderBottomWidth: 1, borderBottomColor: C.notebookLine,
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 11,
+      paddingHorizontal: 12, gap: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
     },
-    taskText: { fontSize: 14, color: C.text, flex: 1 },
+    taskText: { fontSize: 14, color: C.text, flex: 1, lineHeight: 20 },
     taskDone: { textDecorationLine: 'line-through', color: C.textSecondary },
-    overdueCard: { borderLeftWidth: 3, borderLeftColor: C.accent },
+
+    // ── Overdue section ──
+    overdueSection: {
+      backgroundColor: '#fff3f3',
+      marginHorizontal: 12, marginTop: 10,
+      borderRadius: 14, padding: 14,
+      borderLeftWidth: 3, borderLeftColor: '#e55',
+      elevation: 1,
+    },
+    overdueSectionTitle: { fontSize: 14, fontWeight: '700', color: '#c33', marginBottom: 8 },
     overdueDate: { fontSize: 11, color: C.textSecondary, marginTop: 1 },
     moreText: { fontSize: 13, color: C.primary, marginTop: 6 },
 
-    // AI card
-    analysisCard: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      backgroundColor: C.surface, borderRadius: 14, padding: 16,
-      marginHorizontal: 16, marginBottom: 12,
-      elevation: 3, borderWidth: 1, borderColor: C.notebookLine,
-      shadowColor: C.primary, shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1, shadowRadius: 8,
+    // ── FAB ──
+    fab: {
+      position: 'absolute', bottom: 20, right: 16, borderRadius: 28,
+      elevation: 6,
+      shadowColor: '#2d5070', shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.4, shadowRadius: 8,
     },
-    analysisIcon: {
-      width: 48, height: 48, borderRadius: 24,
-      backgroundColor: C.primaryLight,
-      justifyContent: 'center', alignItems: 'center',
+    fabGradient: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 20, paddingVertical: 14, borderRadius: 28,
     },
-    analysisText: { flex: 1 },
-    analysisTitle: {
-      fontSize: 17, fontWeight: '700', color: C.text,
-      
-    },
-    analysisSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+    fabText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-    // Modal
+    // ── Quote card ──
+    quoteCard: {
+      backgroundColor: C.surface, borderRadius: 12,
+      marginHorizontal: 12, marginTop: 10, marginBottom: 12,
+      borderLeftWidth: 4, borderLeftColor: C.accent,
+      overflow: 'hidden', elevation: 2,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06, shadowRadius: 4,
+    },
+    notebookLines: { ...StyleSheet.absoluteFillObject },
+    notebookLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.notebookLine, opacity: 0.5 },
+    quoteContent: { padding: 14, paddingLeft: 16 },
+    quoteText: { fontSize: 14, color: C.text, lineHeight: 21, marginBottom: 6 },
+    quoteAuthor: { fontSize: 13, color: C.primary, fontWeight: '600' },
+
+    // ── Add task modal ──
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: {
       backgroundColor: C.surface,
@@ -520,8 +539,7 @@ function createStyles(C) {
     notebookInputWrapper: { marginBottom: 20 },
     modalInput: {
       fontSize: 15, color: C.text, minHeight: 80, textAlignVertical: 'top',
-      paddingVertical: 4, paddingHorizontal: 2,
-      fontStyle: 'italic',
+      paddingVertical: 4, paddingHorizontal: 2, fontStyle: 'italic',
     },
     inputUnderline: { height: 2, backgroundColor: C.notebookLine, borderRadius: 1 },
     modalLabel: { fontSize: 13, color: C.textSecondary, marginBottom: 8, fontWeight: '600' },
