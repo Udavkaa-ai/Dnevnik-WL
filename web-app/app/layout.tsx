@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import SessionProvider from '@/components/SessionProvider';
+import ThemeInitializer from '@/components/ThemeInitializer';
 
 export const metadata: Metadata = {
   title: 'Дневник',
@@ -37,7 +38,7 @@ export default function RootLayout({
           (function() {
             try {
               var t = localStorage.getItem('theme');
-              if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+              if (t === 'dark' || ((t === 'auto' || !t) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
               }
             } catch(e) {}
@@ -45,6 +46,7 @@ export default function RootLayout({
         ` }} />
       </head>
       <body>
+        <ThemeInitializer />
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

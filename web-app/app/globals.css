@@ -2,29 +2,29 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #f4f6f9;
+  --bg: #f5f0e8;
   --header-from: #3d6b8e;
   --header-to: #2d5070;
   --card-bg: #ffffff;
-  --text-primary: #1a202c;
-  --text-secondary: #718096;
-  --border: #e2e8f0;
+  --text-primary: #1e1b18;
+  --text-secondary: #7a7060;
+  --border: #e8e0d0;
   --nav-bg: #ffffff;
   --nav-active: #3d6b8e;
-  --nav-inactive: #a0aec0;
+  --nav-inactive: #a09880;
 }
 
 .dark {
   --bg: #0f1923;
-  --header-from: #1e2e3d;
-  --header-to: #0f1a26;
-  --card-bg: #1a2433;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border: #2d3748;
-  --nav-bg: #1a2433;
-  --nav-active: #5b9bd5;
-  --nav-inactive: #64748b;
+  --header-from: #1a2a3d;
+  --header-to: #0d1824;
+  --card-bg: #162030;
+  --text-primary: #f0ece4;
+  --text-secondary: #8a9aaa;
+  --border: #243040;
+  --nav-bg: #162030;
+  --nav-active: #6aabdf;
+  --nav-inactive: #566070;
 }
 
 * {

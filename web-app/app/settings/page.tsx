@@ -10,7 +10,8 @@ import Image from 'next/image';
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [darkMode, setDarkMode] = useState(false);
+  type ThemeMode = 'light' | 'dark' | 'auto';
+  const [theme, setTheme] = useState<ThemeMode>('auto');
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string>('');
   const [exporting, setExporting] = useState(false);
@@ -22,22 +23,23 @@ export default function SettingsPage() {
   }, [status, router]);
 
   useEffect(() => {
-    const isDark = document.documentElement.classList.contains('dark') ||
-      localStorage.getItem('theme') === 'dark' ||
-      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    setDarkMode(isDark);
-    if (isDark) document.documentElement.classList.add('dark');
+    const saved = localStorage.getItem('theme') as ThemeMode | null;
+    setTheme(saved ?? 'auto');
   }, []);
 
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    if (newMode) {
+  const changeTheme = (mode: ThemeMode) => {
+    setTheme(mode);
+    localStorage.setItem('theme', mode);
+    if (mode === 'dark') {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
+    } else if (mode === 'light') {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+    } else {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   };
 
@@ -149,33 +151,27 @@ export default function SettingsPage() {
 
         {/* Appearance */}
         <div className="section-header">Внешний вид</div>
-        <div className="card mb-4">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-                <span className="text-xl">{darkMode ? '🌙' : '☀️'}</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  Тёмная тема
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {darkMode ? 'Включена' : 'Выключена'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={toggleDarkMode}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                darkMode ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            >
-              <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                  darkMode ? 'translate-x-6' : 'translate-x-0'
+        <div className="card mb-4 p-4">
+          <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Тема оформления</p>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { mode: 'light', icon: '☀️', label: 'Светлая' },
+              { mode: 'dark', icon: '🌙', label: 'Тёмная' },
+              { mode: 'auto', icon: '⚙️', label: 'Системная' },
+            ] as { mode: ThemeMode; icon: string; label: string }[]).map(({ mode, icon, label }) => (
+              <button
+                key={mode}
+                onClick={() => changeTheme(mode)}
+                className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-xs font-medium transition-all ${
+                  theme === mode
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300'
                 }`}
-              />
-            </button>
+              >
+                <span className="text-lg">{icon}</span>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
