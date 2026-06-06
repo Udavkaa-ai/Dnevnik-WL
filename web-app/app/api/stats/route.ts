@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions, getUserId } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { toDateString } from '@/lib/utils';
-
-function getUserId(session: Awaited<ReturnType<typeof getServerSession>>): string | null {
-  if (!session?.user) return null;
-  return (session.user as typeof session.user & { id?: string }).id ?? null;
-}
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);

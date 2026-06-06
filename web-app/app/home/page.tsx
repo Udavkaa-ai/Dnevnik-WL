@@ -185,7 +185,7 @@ export default function HomePage() {
     );
   }
 
-  const userName = (session?.user as typeof session?.user & { name?: string })?.name;
+  const userName = (session?.user as { name?: string | null } | undefined)?.name;
   const greeting = () => {
     const h = new Date().getHours();
     if (h < 6) return 'Доброй ночи';

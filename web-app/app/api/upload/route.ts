@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions, getUserId } from '@/lib/auth';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
-
-function getUserId(session: Awaited<ReturnType<typeof getServerSession>>): string | null {
-  if (!session?.user) return null;
-  return (session.user as typeof session.user & { id?: string }).id ?? null;
-}
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);

@@ -14,7 +14,7 @@ export default function AppHeader({ title, subtitle }: AppHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const user = session?.user as
-    | (typeof session.user & { id?: string; image?: string | null })
+    | { name?: string | null; email?: string | null; image?: string | null; id?: string }
     | undefined;
 
   return (

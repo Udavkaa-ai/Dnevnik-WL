@@ -4,18 +4,20 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String       @id @default(cuid())
-  yandexId  String       @unique
-  name      String?
-  email     String?
-  avatar    String?
-  createdAt DateTime     @default(now())
-  entries   DiaryEntry[]
-  plans     Plan[]
+  id          String       @id @default(cuid())
+  yandexId    String       @unique
+  name        String?
+  email       String?
+  avatar      String?
+  createdAt   DateTime     @default(now())
+  entries     DiaryEntry[]
+  plans       Plan[]
+  connections Connection[] @relation("ConnectionOwner")
+  asSubject   Connection[] @relation("ConnectionSubject")
+  personNotes PersonNote[]
 }
 
 model DiaryEntry {
@@ -41,4 +43,30 @@ model Plan {
   movedTo   String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Connection {
+  id         String       @id @default(cuid())
+  ownerId    String
+  subjectId  String?
+  nickname   String
+  inviteCode String       @unique @default(cuid())
+  accepted   Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  owner      User         @relation("ConnectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  subject    User?        @relation("ConnectionSubject", fields: [subjectId], references: [id])
+  notes      PersonNote[]
+}
+
+model PersonNote {
+  id           Int        @id @default(autoincrement())
+  connectionId String
+  authorId     String
+  text         String
+  date         String
+  isShared     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  author       User       @relation(fields: [authorId], references: [id])
 }

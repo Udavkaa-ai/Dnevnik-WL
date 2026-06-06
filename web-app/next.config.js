@@ -7,8 +7,14 @@ const withPWA = require('next-pwa')({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  turbopack: {},
   images: {
-    domains: ['avatars.yandex.net'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'avatars.yandex.net',
+      },
+    ],
   },
 };
 
