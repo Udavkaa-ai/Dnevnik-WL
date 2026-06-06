@@ -64,6 +64,7 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       if (account?.provider && user?.id) {
+        token.provider = account.provider
         try {
           const where = account.provider === 'google' ? { googleId: user.id } : { yandexId: user.id }
           const dbUser = await prisma.user.findUnique({ where })
@@ -76,7 +77,9 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token.dbUserId && session.user) {
-        (session.user as typeof session.user & { id: string }).id = token.dbUserId as string
+        const u = session.user as typeof session.user & { id: string; provider: string }
+        u.id = token.dbUserId as string
+        u.provider = (token.provider as string) ?? 'yandex'
       }
       return session
     },

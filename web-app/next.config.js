@@ -12,10 +12,8 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'avatars.yandex.net',
-      },
+      { protocol: 'https', hostname: 'avatars.yandex.net' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
 };

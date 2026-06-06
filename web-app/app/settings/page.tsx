@@ -99,7 +99,8 @@ export default function SettingsPage() {
     input.click();
   };
 
-  const user = session?.user as { name?: string | null; email?: string | null; image?: string | null; id?: string } | undefined;
+  const user = session?.user as { name?: string | null; email?: string | null; image?: string | null; id?: string; provider?: string } | undefined;
+  const providerLabel = user?.provider === 'google' ? 'Google аккаунт' : 'Яндекс аккаунт';
 
   if (status === 'loading') {
     return (
@@ -127,7 +128,8 @@ export default function SettingsPage() {
                 alt={user.name || 'User'}
                 width={56}
                 height={56}
-                className="rounded-full border-2 border-gray-100 dark:border-gray-700"
+                className="rounded-full border-2 border-gray-100 dark:border-gray-700 object-cover"
+                style={{ width: 56, height: 56 }}
               />
             ) : (
               <div
@@ -145,7 +147,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
               )}
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                Яндекс аккаунт
+                {providerLabel}
               </p>
             </div>
           </div>
