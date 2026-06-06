@@ -229,12 +229,12 @@ export default function DiaryEntryPage() {
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {entry.photos.map((photo, i) => (
-                <div key={i} className="relative aspect-square rounded-xl overflow-hidden">
-                  <Image
+                <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={photo}
-                    alt={`Photo ${i + 1}`}
-                    fill
-                    className="object-cover"
+                    alt={`Фото ${i + 1}`}
+                    className="w-full h-full object-cover"
                   />
                 </div>
               ))}
