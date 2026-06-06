@@ -64,7 +64,7 @@ export default function SettingsPage() {
   const handleImport = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = '.json,.zip';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
@@ -73,25 +73,19 @@ export default function SettingsPage() {
       setImportResult('');
 
       try {
-        const text = await file.text();
-        const data = JSON.parse(text);
+        const formData = new FormData();
+        formData.append('file', file);
 
-        const res = await fetch('/api/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-
+        const res = await fetch('/api/import', { method: 'POST', body: formData });
         const result = await res.json();
+
         if (result.success) {
-          setImportResult(
-            `Успешно импортировано: ${result.entriesImported} записей, ${result.tasksImported} задач`
-          );
+          setImportResult(`Импортировано: ${result.entriesImported} записей, ${result.tasksImported} задач`);
         } else {
-          setImportResult('Ошибка при импорте');
+          setImportResult(`Ошибка: ${result.error || 'неверный формат'}`);
         }
       } catch {
-        setImportResult('Ошибка: неверный формат файла');
+        setImportResult('Ошибка при чтении файла');
       } finally {
         setImporting(false);
       }
