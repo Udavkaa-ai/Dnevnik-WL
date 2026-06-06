@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String       @id @default(cuid())
+  yandexId  String       @unique
+  name      String?
+  email     String?
+  avatar    String?
+  createdAt DateTime     @default(now())
+  entries   DiaryEntry[]
+  plans     Plan[]
+}
+
+model DiaryEntry {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  date      String
+  text      String
+  moodScore Int?
+  photos    String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model Plan {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  text      String
+  date      String?
+  status    String   @default("pending")
+  movedTo   String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
