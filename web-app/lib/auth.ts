@@ -1,11 +1,24 @@
 import { NextAuthOptions } from 'next-auth'
+import GoogleProvider from 'next-auth/providers/google'
 import { prisma } from './prisma'
+
+async function upsertUser(provider: string, externalId: string, name?: string | null, email?: string | null, image?: string | null) {
+  const where = provider === 'google' ? { googleId: externalId } : { yandexId: externalId }
+  const data = provider === 'google'
+    ? { googleId: externalId, name, email, avatar: image }
+    : { yandexId: externalId, name, email, avatar: image }
+  return prisma.user.upsert({ where, update: { name, email, avatar: image }, create: data })
+}
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt' },
   pages: { signIn: '/login', error: '/login' },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     {
       id: 'yandex',
       name: 'Яндекс',
@@ -16,8 +29,8 @@ export const authOptions: NextAuthOptions = {
       },
       token: 'https://oauth.yandex.ru/token',
       userinfo: 'https://login.yandex.ru/info?format=json',
-      clientId: process.env.YANDEX_CLIENT_ID!,
-      clientSecret: process.env.YANDEX_CLIENT_SECRET!,
+      clientId: process.env.YANDEX_CLIENT_ID,
+      clientSecret: process.env.YANDEX_CLIENT_SECRET,
       profile(profile: {
         id: string
         display_name?: string
@@ -40,33 +53,30 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider !== 'yandex') return false
+      if (!account?.provider || !user?.id) return false
       try {
-        await prisma.user.upsert({
-          where: { yandexId: user.id },
-          update: { name: user.name, email: user.email, avatar: user.image },
-          create: { yandexId: user.id, name: user.name, email: user.email, avatar: user.image },
-        })
+        await upsertUser(account.provider, user.id, user.name, user.email, user.image)
+        return true
       } catch (error) {
-        console.error('Error upserting user:', error)
+        console.error('signIn error:', error)
         return false
       }
-      return true
     },
     async jwt({ token, user, account }) {
-      if (account?.provider === 'yandex' && user?.id) {
-        const dbUser = await prisma.user.findUnique({ where: { yandexId: user.id } })
-        if (dbUser) {
-          token.dbUserId = dbUser.id
-          token.userId = dbUser.id
+      if (account?.provider && user?.id) {
+        try {
+          const where = account.provider === 'google' ? { googleId: user.id } : { yandexId: user.id }
+          const dbUser = await prisma.user.findUnique({ where })
+          if (dbUser) token.dbUserId = dbUser.id
+        } catch (e) {
+          console.error('jwt error:', e)
         }
       }
       return token
     },
     async session({ session, token }) {
-      const userId = (token.dbUserId || token.userId) as string | undefined
-      if (userId && session.user) {
-        ;(session.user as typeof session.user & { id: string }).id = userId
+      if (token.dbUserId && session.user) {
+        (session.user as typeof session.user & { id: string }).id = token.dbUserId as string
       }
       return session
     },
