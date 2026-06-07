@@ -7,6 +7,7 @@ import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
 import DiaryCard from '@/components/DiaryCard';
 import Link from 'next/link';
+import { getCache, setCache } from '@/lib/cache';
 
 interface DiaryEntry {
   id: number;
@@ -32,13 +33,20 @@ export default function DiaryPage() {
   }, [status, router]);
 
   const loadEntries = useCallback(async (offset = 0, replace = true) => {
-    if (offset === 0) setLoading(true);
-    else setLoadingMore(true);
+    if (offset === 0) {
+      const hit = getCache<{ entries: DiaryEntry[]; total: number }>('diary-list');
+      if (hit) { setEntries(hit.entries); setTotal(hit.total); setLoading(false); }
+      else setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
 
     try {
       const res = await fetch(`/api/diary?limit=${limit}&offset=${offset}`);
+      if (!res.ok) return;
       const data = await res.json();
       if (replace) {
+        setCache('diary-list', { entries: data.entries || [], total: data.total || 0 });
         setEntries(data.entries || []);
       } else {
         setEntries((prev) => [...prev, ...(data.entries || [])]);
@@ -53,9 +61,7 @@ export default function DiaryPage() {
   }, []);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      loadEntries(0);
-    }
+    if (status !== 'loading') loadEntries(0);
   }, [status, loadEntries]);
 
   const handleDelete = async (id: number) => {

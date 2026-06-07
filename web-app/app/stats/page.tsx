@@ -8,6 +8,7 @@ import BottomNav from '@/components/BottomNav';
 import dynamic from 'next/dynamic';
 
 const MoodChart = dynamic(() => import('@/components/MoodChart'), { ssr: false });
+import { getCache, setCache } from '@/lib/cache';
 
 interface MoodDataPoint {
   date: string;
@@ -44,10 +45,15 @@ export default function StatsPage() {
   }, [status, router]);
 
   const loadStats = useCallback(async () => {
-    setLoading(true);
+    const hit = getCache<StatsData>(`stats-${period}`);
+    if (hit) { setStats(hit); setLoading(false); }
+    else setLoading(true);
+
     try {
       const res = await fetch(`/api/stats?days=${period}`);
+      if (!res.ok) return;
       const data = await res.json();
+      setCache(`stats-${period}`, data);
       setStats(data);
     } catch (e) {
       console.error(e);
@@ -57,9 +63,7 @@ export default function StatsPage() {
   }, [period]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      loadStats();
-    }
+    if (status !== 'loading') loadStats();
   }, [status, loadStats]);
 
   if (status === 'loading' || loading) {

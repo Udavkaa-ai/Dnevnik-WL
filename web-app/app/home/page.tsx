@@ -8,6 +8,7 @@ import BottomNav from '@/components/BottomNav';
 import TaskItem from '@/components/TaskItem';
 import Link from 'next/link';
 import { getTodayString, addDays, getDayLabel, formatDate, getMoodEmoji } from '@/lib/utils';
+import { getCache, setCache, bustCache } from '@/lib/cache';
 
 interface Task {
   id: number;
@@ -86,17 +87,25 @@ export default function HomePage() {
   }, [status, router]);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    const hit = getCache<{ tasks: Task[]; entries: DiaryEntry[] }>('home');
+    if (hit) {
+      setTasks(hit.tasks);
+      const todayE = hit.entries?.find((e) => e.date === today);
+      setTodayEntry(todayE || null);
+      setLoading(false);
+    }
+
     try {
       const [tasksRes, diaryRes] = await Promise.all([
         fetch('/api/tasks'),
-        fetch('/api/diary?limit=1'),
+        fetch('/api/diary?limit=5'),
       ]);
+      if (!tasksRes.ok || !diaryRes.ok) return;
       const tasksData = await tasksRes.json();
       const diaryData = await diaryRes.json();
 
+      setCache('home', { tasks: tasksData, entries: diaryData.entries ?? [] });
       setTasks(tasksData);
-
       const todayE = diaryData.entries?.find((e: DiaryEntry) => e.date === today);
       setTodayEntry(todayE || null);
     } catch (e) {
@@ -107,9 +116,7 @@ export default function HomePage() {
   }, [today]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      loadData();
-    }
+    if (status !== 'loading') loadData();
   }, [status, loadData]);
 
   const handleAddTask = async (text: string, date?: string) => {
@@ -120,7 +127,7 @@ export default function HomePage() {
     });
     if (res.ok) {
       const newTask = await res.json();
-      setTasks((prev) => [...prev, newTask]);
+      setTasks((prev) => { const next = [...prev, newTask]; bustCache('home', 'tasks'); return next; });
     }
   };
 

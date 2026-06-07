@@ -7,6 +7,7 @@ import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
 import TaskItem from '@/components/TaskItem';
 import { getTodayString, getDayLabel } from '@/lib/utils';
+import { getCache, setCache, bustCache } from '@/lib/cache';
 
 interface Task {
   id: number;
@@ -41,10 +42,14 @@ export default function TasksPage() {
   }, [status, router]);
 
   const loadTasks = useCallback(async () => {
-    setLoading(true);
+    const hit = getCache<Task[]>('tasks');
+    if (hit) { setTasks(hit); setLoading(false); }
+
     try {
       const res = await fetch('/api/tasks');
+      if (!res.ok) return;
       const data = await res.json();
+      setCache('tasks', data);
       setTasks(data);
     } catch (e) {
       console.error(e);
@@ -54,9 +59,7 @@ export default function TasksPage() {
   }, []);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      loadTasks();
-    }
+    if (status !== 'loading') loadTasks();
   }, [status, loadTasks]);
 
   const handleAddTask = async () => {
@@ -68,7 +71,7 @@ export default function TasksPage() {
     });
     if (res.ok) {
       const newTask = await res.json();
-      setTasks((prev) => [...prev, newTask]);
+      setTasks((prev) => { const next = [...prev, newTask]; bustCache('tasks', 'home'); return next; });
       setNewTaskText('');
       setNewTaskDate('');
       setShowAddForm(false);
